@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Map, Popup, NavigationControl, AttributionControl } from '@/lib/map/setup';
+import { Map, Popup, NavigationControl, AttributionControl, LngLatBounds, type FilterSpecification } from '@/lib/map/setup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMapLibre } from '@/lib/map/setup';
 import { joinStatsToGeoJSON, type StatsMap, type ParliamentStats } from '@/lib/map/join-stats';
 import { buildColorExpression, getScaleById, COLOR_SCALES, type ColorScale } from '@/lib/map/color-scales';
+import Legend from '@/components/map/Legend';
 
 // ============================================================
 // Types
@@ -63,6 +64,16 @@ interface DUNProperties {
 }
 
 // ============================================================
+// Layer toggle state
+// ============================================================
+
+interface LayerVisibility {
+  parliament: boolean;
+  dun: boolean;
+  dm: boolean;
+}
+
+// ============================================================
 // Constants
 // ============================================================
 
@@ -70,6 +81,17 @@ const SELANGOR_CENTER: [number, number] = [101.5, 3.1];
 const DEFAULT_ZOOM = 8.5;
 const MIN_ZOOM = 7;
 const MAX_ZOOM = 18;
+
+const DEFAULT_LAYERS: LayerVisibility = {
+  parliament: true,
+  dun: true,
+  dm: false, // Phase 3 — not yet implemented
+};
+
+// All layer IDs per group for visibility toggling
+const PARLIAMENT_LAYER_IDS = ['parliament-fill', 'parliament-label', 'parliament-border'];
+const DUN_LAYER_IDS = ['dun-fill', 'dun-border', 'dun-label'];
+const DM_LAYER_IDS: string[] = []; // Phase 3
 
 // ============================================================
 // Component
@@ -85,12 +107,59 @@ export default function MapDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeMetric, setActiveMetric] = useState('total_voters');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [layers, setLayers] = useState<LayerVisibility>(DEFAULT_LAYERS);
+  const [drilledParl, setDrilledParl] = useState<string | null>(null);
 
   // Keep a ref to activeMetric so the map callback always reads the latest
   const activeMetricRef = useRef(activeMetric);
   useEffect(() => {
     activeMetricRef.current = activeMetric;
   }, [activeMetric]);
+
+  // ------- Toggle layer visibility -------
+  const toggleLayer = useCallback((group: keyof LayerVisibility) => {
+    setLayers((prev) => {
+      const next = { ...prev, [group]: !prev[group] };
+      const map = mapRef.current;
+      if (!map) return next;
+
+      const visible = next[group] ? 'visible' : 'none';
+      const layerIds =
+        group === 'parliament' ? PARLIAMENT_LAYER_IDS :
+        group === 'dun' ? DUN_LAYER_IDS :
+        DM_LAYER_IDS;
+
+      layerIds.forEach((id) => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, 'visibility', visible);
+        }
+      });
+
+      return next;
+    });
+  }, []);
+
+  // ------- Reset drill-down -------
+  const resetDrillDown = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Remove filter (show all DUNs)
+    if (map.getLayer('dun-fill')) {
+      map.setFilter('dun-fill', null);
+    }
+    if (map.getLayer('dun-border')) {
+      map.setFilter('dun-border', null);
+    }
+    if (map.getLayer('dun-label')) {
+      map.setFilter('dun-label', null);
+    }
+
+    // Fly back to state overview
+    map.flyTo({ center: SELANGOR_CENTER, zoom: DEFAULT_ZOOM, duration: 800 });
+    setDrilledParl(null);
+    popupRef.current?.remove();
+  }, []);
 
   // ------- Load data & initialize map -------
   useEffect(() => {
@@ -333,14 +402,44 @@ export default function MapDashboard() {
           });
           popupRef.current = popup;
 
-          // ---- Parliament click → popup ----
+          // ---- Parliament click → drill-down to DUNs ----
           map.on('click', 'parliament-fill', (e) => {
             if (!e.features?.length) return;
-            const props = e.features[0].properties as unknown as PopupData;
+            const feat = e.features[0];
+            const props = feat.properties as unknown as PopupData;
+            const codeParlimen = props.code_parlimen;
+
+            // Filter DUN layers to show only this Parliament's child DUNs
+            const dunsFilter: FilterSpecification = ['==', ['get', 'parent_parl'], codeParlimen] as unknown as FilterSpecification;
+            DUN_LAYER_IDS.forEach((id) => {
+              if (map.getLayer(id)) {
+                map.setFilter(id, dunsFilter);
+              }
+            });
+
+            // Fly to the clicked Parliament's bounds
+            if (feat.geometry && feat.geometry.type === 'Polygon') {
+              const bounds = new LngLatBounds();
+              for (const ring of feat.geometry.coordinates) {
+                for (const coord of ring) {
+                  bounds.extend(coord as [number, number]);
+                }
+              }
+              map.flyTo({
+                center: bounds.getCenter(),
+                zoom: 10.5,
+                duration: 800,
+                padding: { top: 40, bottom: 40, left: 40, right: 40 },
+              });
+            }
+
+            // Show popup with Parliament info + drill-down hint
             popup
               .setLngLat(e.lngLat)
-              .setHTML(buildParliamentPopupHTML(props))
+              .setHTML(buildParliamentPopupHTML(props, true))
               .addTo(map);
+
+            setDrilledParl(codeParlimen);
           });
 
           // ---- Parliament hover highlight ----
@@ -469,6 +568,43 @@ export default function MapDashboard() {
           </p>
         </div>
 
+        {/* Layer Toggles */}
+        <div className="p-4 border-b border-slate-200 flex-shrink-0">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">
+            Layers
+          </label>
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={layers.parliament}
+                onChange={() => toggleLayer('parliament')}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-xs text-slate-700 group-hover:text-slate-900">Parliament (22)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={layers.dun}
+                onChange={() => toggleLayer('dun')}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+              />
+              <span className="text-xs text-slate-700 group-hover:text-slate-900">DUN (56)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={layers.dm}
+                onChange={() => toggleLayer('dm')}
+                disabled
+                className="w-3.5 h-3.5 rounded border-slate-300 text-slate-400 focus:ring-slate-400 cursor-not-allowed opacity-40"
+              />
+              <span className="text-xs text-slate-400">DM Centroids (Phase 3)</span>
+            </label>
+          </div>
+        </div>
+
         {/* Metric Selector */}
         <div className="p-4 border-b border-slate-200 flex-shrink-0">
           <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -487,25 +623,28 @@ export default function MapDashboard() {
           </select>
         </div>
 
-        {/* Legend */}
+        {/* Legend — using reusable component */}
         <div className="p-4 flex-shrink-0">
-          <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
-            {currentScale.label}
-          </h3>
-          <div className="space-y-1">
-            {currentScale.stops.map(([value, color], i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span
-                  className="w-5 h-3 rounded-sm flex-shrink-0 border border-slate-200"
-                  style={{ backgroundColor: color }}
-                />
-                <span className="text-xs text-slate-700">
-                  {currentScale.legendLabels[i]}
-                </span>
-              </div>
-            ))}
-          </div>
+          <Legend scale={currentScale} />
         </div>
+
+        {/* Drill-down breadcrumb (when active) */}
+        {drilledParl && (
+          <div className="px-4 pb-3 flex-shrink-0">
+            <button
+              onClick={resetDrillDown}
+              className="w-full flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-900 font-medium py-1.5 px-2 rounded-md hover:bg-emerald-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Selangor overview
+            </button>
+            <p className="text-[10px] text-slate-500 mt-1 px-2">
+              Showing DUNs under {drilledParl}
+            </p>
+          </div>
+        )}
 
         {/* Info */}
         <div className="mt-auto p-4 border-t border-slate-200 flex-shrink-0">
@@ -514,7 +653,7 @@ export default function MapDashboard() {
             ElectionData.MY. Not official SPR boundaries.
           </p>
           <p className="text-[10px] text-slate-400 mt-1">
-            Phase 2 — Parliament (22) + DUN (56) + Voter Statistics
+            Phase 2 — Parliament (22) + DUN (56) + Drill-Down + Toggles
           </p>
         </div>
       </aside>
@@ -581,10 +720,10 @@ export default function MapDashboard() {
 }
 
 // ============================================================
-// Popup HTML builder
+// Popup HTML builders
 // ============================================================
 
-function buildParliamentPopupHTML(p: PopupData): string {
+function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean = false): string {
   return `
     <div style="font-family: system-ui, sans-serif;">
       <div style="font-weight:700; font-size:15px; color:#0f172a;">
@@ -646,6 +785,11 @@ function buildParliamentPopupHTML(p: PopupData): string {
           <td style="text-align:right;">${p.child_dun_count}</td>
         </tr>
       </table>
+      ${isDrillDown ? `
+      <div style="font-size:10px;color:#059669;margin-top:8px;font-weight:500;">
+        Zoomed to ${p.child_dun_count} DUN seat${p.child_dun_count > 1 ? 's' : ''} — click DUNs for details
+      </div>
+      ` : ''}
     </div>
   `;
 }

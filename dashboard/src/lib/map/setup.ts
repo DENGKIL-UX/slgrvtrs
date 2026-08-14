@@ -1,7 +1,7 @@
-import { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl } from "maplibre-gl";
+import { Map, Popup, NavigationControl, AttributionControl, LngLatBounds, setWorkerUrl } from "maplibre-gl";
 
-export type { Map as MapLibreMap } from "maplibre-gl";
-export { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl };
+export type { Map as MapLibreMap, FilterSpecification } from "maplibre-gl";
+export { Map, Popup, NavigationControl, AttributionControl, LngLatBounds, setWorkerUrl };
 
 let initialized = false;
 
