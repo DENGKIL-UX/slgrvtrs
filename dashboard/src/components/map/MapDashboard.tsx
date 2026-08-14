@@ -106,7 +106,6 @@ export default function MapDashboard() {
           map.addSource('parliament', {
             type: 'geojson',
             data: joined,
-            promoteId: 'id',
           });
 
           // ---- Initial scale ----
