@@ -15,7 +15,6 @@ Thumbs.db
 *.7z.005
 *.7z.006
 
-# Analysis intermediates
-analysis/
+# Intermediates (keep final outputs)
 scripts/analysis_result.json
 scripts/summary.json
