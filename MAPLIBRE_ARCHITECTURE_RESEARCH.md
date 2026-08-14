@@ -1,7 +1,7 @@
 # MapLibre 4-Layer Architecture — Technical Research Report
 
 **Project**: Selangor Voter Registry Interactive Map Dashboard (SLGRVTRS)
-**Date**: 14 August 2026
+**Date**: 14 August 2026 (updated)
 **Scope**: Deep technical research for implementing the 4-layer MapLibre architecture — data sizing, rendering performance, interaction patterns, library versions, and integration with Next.js 16
 **Data**: 3,971,650 voters | 22 Parliaments | 56 DUNs | 945 DMs
 
@@ -15,9 +15,10 @@ This document provides the engineering research behind the 4-layer MapLibre dash
 
 - MapLibre GL JS **v6.3.0** is the latest stable release (July 2026) — ESM-only, WebGL2-only, ~130 KB gzipped, with 3.4x faster feature-state. Use v6 for this greenfield project.
 - Next.js 16 + React 19: use **`next/dynamic` with `ssr: false`** for the map component. **Do NOT use `react-map-gl`** — it has known React 19/Turbopack compatibility bugs. Use the imperative MapLibre API directly.
-- Layers 1-3 (22 + 56 polygons + 945 points) total **~15,782 vertices and under 5 MB of GeoJSON** — trivially small for MapLibre. No vector tiles needed. All data loads from `/public` as static GeoJSON.
+- Layers 1-3 (22 + 56 polygons + 945 points) total **~17,286 vertices and under 5 MB of GeoJSON** — trivially small for MapLibre. No vector tiles needed. All data loads from `/public` as static GeoJSON.
 - Layer 4 (3.97M points) **requires vector tiles** — tippecanoe → PMTiles → S3/CloudFront. Expected tileset size: 100-300 MB. GeoJSON would be 800 MB+ and is not viable.
 - **945 DM centroids** must be generated from voter data since no DM boundary polygons exist. Strategy: compute from voter DM_CODE grouping (no GPS available in current data), place within parent DUN polygon using Turf.js grid-in-polygon.
+- **DUN boundaries**: ElectionData.MY now provides both Parliament and DUN boundary files from the 2018 delimitation. The ElectionData DUN file (`electiondata_2018_dun.geojson`) contains 445 Peninsular features, 56 in Selangor, with 8,600 vertices (avg 154 per DUN, ~2x more detail than DOSM). It uses `Polygon` geometry (not `MultiPolygon`) and includes `code_parlimen` for direct parent mapping.
 
 ---
 
@@ -81,16 +82,21 @@ The map library loads via `next/dynamic({ ssr: false })`, so it **does not block
 When bundling with Next.js 16 (Turbopack or Webpack), the web worker may need an explicit URL:
 
 ```typescript
-// lib/map-setup.ts
-import maplibregl from 'maplibre-gl';
+// lib/map/setup.ts
+import { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl } from 'maplibre-gl';
 
-// Set worker URL for bundler compatibility
-maplibregl.setWorkerUrl(
-  new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).href
-);
+export { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl };
 
-export default maplibregl;
+let initialized = false;
+
+export function initMapLibre() {
+  if (initialized) return;
+  initialized = true;
+  setWorkerUrl('/maplibre-gl-worker.mjs');
+}
 ```
+
+> **Note**: The actual project uses a centralized setup module at `src/lib/map/setup.ts` that re-exports all MapLibre types and configures the worker URL. All components import from this module — never directly from `maplibre-gl`.
 
 ---
 
@@ -104,16 +110,20 @@ The `react-map-gl` library (v7.x) has a **known open bug** with React 19 + Next.
 
 MapLibre requires `window`, `WebGL2`, and `document` — none of which exist during SSR. The App Router makes all components Server Components by default. The map must be explicitly loaded client-side only.
 
+**Implemented** (`dashboard/src/app/page.tsx`):
+
 ```tsx
-// app/page.tsx — Server Component (default)
+// app/page.tsx — Client Component (uses 'use client' directive)
 import dynamic from 'next/dynamic';
 
 const MapDashboard = dynamic(() => import('@/components/map/MapDashboard'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-screen flex items-center justify-center bg-slate-900">
-      <div className="animate-spin h-8 w-8 border-4 border-blue-400 border-t-transparent rounded-full" />
-      <span className="ml-3 text-slate-400 text-sm">Loading Selangor Voter Map...</span>
+    <div className="w-full h-screen flex items-center justify-center bg-slate-100">
+      <div className="animate-spin h-7 w-7 border-3 border-emerald-500 border-t-transparent rounded-full" />
+      <span className="ml-3 text-sm text-slate-500">
+        Loading Selangor Voter Map…
+      </span>
     </div>
   ),
 });
@@ -123,53 +133,95 @@ export default function Home() {
 }
 ```
 
+> **Implementation note**: The current code uses `'use client'` on `page.tsx` instead of keeping it as a Server Component and delegating client-side rendering to `MapDashboard.tsx`. This works but is slightly less optimal — a future refactor should move the `'use client'` directive to `MapDashboard.tsx` only and keep `page.tsx` as a Server Component.
+
 ```tsx
 // components/map/MapDashboard.tsx — Client Component
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Map, Popup, NavigationControl, AttributionControl } from 'maplibre-gl';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Map, Popup, NavigationControl, AttributionControl } from '@/lib/map/setup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMapLibre } from '@/lib/map/setup';
+import { joinStatsToGeoJSON, type StatsMap } from '@/lib/map/join-stats';
+import { buildColorExpression, getScaleById, COLOR_SCALES } from '@/lib/map/color-scales';
 
 export default function MapDashboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
+  const popupRef = useRef<Popup | null>(null);
+  const hoveredIdRef = useRef<number | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeMetric, setActiveMetric] = useState('total_voters');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Keep a ref to activeMetric so the map callback always reads the latest
+  const activeMetricRef = useRef(activeMetric);
+  useEffect(() => { activeMetricRef.current = activeMetric; }, [activeMetric]);
 
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
+    let cancelled = false;
 
-    initMapLibre(); // Configure worker URL BEFORE creating Map
+    async function bootstrap() {
+      try {
+        initMapLibre(); // Configure worker URL BEFORE creating Map
 
-    mapRef.current = new Map({
-      container: containerRef.current,
-      style: { version: 8, sources: {}, layers: [] },
-      center: [101.5, 3.1] as [number, number], // Selangor center
-      zoom: 8.5,
-      minZoom: 7,
-      maxZoom: 18,
-      attributionControl: false,
-      // Use a reliable glyph CDN — demotiles.maplibre.org returns 404
-      // for many font stacks.
-      glyphs: 'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
-    });
+        const [geoRes, statsRes] = await Promise.all([
+          fetch('/boundaries/selangor_parliament.geojson'),
+          fetch('/stats/parliament.json'),
+        ]);
+        if (cancelled) return;
 
-    // Add layers after map loads
-    mapRef.current.on('load', () => {
-      addBoundaryLayers(mapRef.current!);
-      addCentroidLayers(mapRef.current!);
-    });
+        const geojson = await geoRes.json();
+        const stats: StatsMap = await statsRes.json();
+        const joined = joinStatsToGeoJSON(geojson, stats);
+        if (cancelled) return;
 
+        const map = new Map({
+          container: containerRef.current!,
+          style: {
+            version: 8, name: 'SLGRVTRS Blank',
+            sources: {},
+            layers: [{ id: 'background', type: 'background',
+              paint: { 'background-color': '#f0f4f8' } }],
+            glyphs: 'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
+          },
+          center: [101.5, 3.1] as [number, number],
+          zoom: 8.5, minZoom: 7, maxZoom: 18,
+          attributionControl: false,
+        });
+
+        map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
+        map.addControl(new NavigationControl(), 'top-right');
+
+        map.on('load', () => { /* add sources, layers, interactions */ });
+        mapRef.current = map;
+      } catch (err) {
+        if (!cancelled) { setError(err instanceof Error ? err.message : 'Failed to load map data'); setLoading(false); }
+      }
+    }
+
+    bootstrap();
     return () => {
+      cancelled = true;
+      popupRef.current?.remove();
       mapRef.current?.remove();
       mapRef.current = null;
     };
   }, []);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-screen flex overflow-hidden bg-slate-100">
+      {/* Sidebar + Map container */}
+    </div>
+  );
+}
 ```
 
-> **IMPORTANT**: MapLibre v6 is ESM-only. Use **named imports** (`import { Map } from 'maplibre-gl'`), NOT the default import (`import maplibregl from 'maplibre-gl'`). The default import silently resolves to `undefined` in ESM mode — the `new Map()` call will throw with no useful error message.
+> **IMPORTANT**: MapLibre v6 is ESM-only. Use **named imports** (`import { Map } from 'maplibre-gl'`), NOT the default import (`import maplibregl from 'maplibre-gl'`). The default import silently resolves to `undefined` in ESM mode — the `new Map()` call will throw with no useful error message. The project's `setup.ts` module handles this by re-exporting named exports.
 
 ### 2.3 React 19 `useRef` + StrictMode
 
@@ -179,21 +231,23 @@ React 19 StrictMode (development) double-mounts components. The pattern above ha
 2. Cleanup function calls `mapRef.current?.remove()` — destroys the first instance
 3. The second mount creates a fresh map instance
 
+> **Implementation note**: The current `next.config.ts` sets `reactStrictMode: false` to avoid the double-mount issue during development. This is a pragmatic choice — the cleanup pattern in `MapDashboard.tsx` handles StrictMode correctly, but disabling it eliminates unnecessary map create/destroy cycles during HMR.
+
 ### 2.4 Loading GeoJSON Data
 
 For Layers 1-3, the boundary GeoJSON files are small enough to fetch from `/public`:
 
 | Layer | File | Estimated Selangor-only size | Load method |
 |:-----:|------|:---------------------------:|:-----------:|
-| L1 Parliament | `selangor_parliament.geojson` | ~300-400 KB (22 features, 7,563 vertices) | `fetch('/boundaries/...')` |
-| L2 DUN | `selangor_dun.geojson` | ~200-300 KB (56 features, 4,219 vertices) | `fetch('/boundaries/...')` |
+| L1 Parliament | `selangor_parliament.geojson` | ~182 KB (22 features, 4,386 vertices) | `fetch('/boundaries/...')` |
+| L2 DUN | `selangor_dun.geojson` | ~200-300 KB (56 features, 8,600 vertices) | `fetch('/boundaries/...')` |
 | L3 DM centroids | `dm_centroids.geojson` | ~80-120 KB (945 point features) | `fetch('/boundaries/...')` |
 | State outline | `selangor_outline.geojson` | ~20 KB (1 feature, ~200 vertices) | `fetch('/boundaries/...')` |
 
-**Total: ~600-840 KB** of GeoJSON — well within MapLibre's 10-50 MB recommended limit for URL-sourced GeoJSON.
+**Total: ~480-620 KB** of GeoJSON — well within MapLibre's 10-50 MB recommended limit for URL-sourced GeoJSON.
 
 ```typescript
-// Load all boundary data in parallel
+// Load all boundary data in parallel (Phase 2)
 async function loadBoundaryData() {
   const [parliament, dun, outline, dmCentroids] = await Promise.all([
     fetch('/boundaries/selangor_parliament.geojson').then(r => r.json()),
@@ -218,7 +272,7 @@ async function loadStats() {
 }
 ```
 
-### 2.5 ⚠️ Worker Setup (MapLibre v6 + Turbopack) — CRITICAL PITFALL
+### 2.5 Worker Setup (MapLibre v6 + Turbopack) — CRITICAL PITFALL
 
 **This is the #1 cause of a blank-white map canvas with zero console errors.** Documented here so you don't lose hours debugging it.
 
@@ -234,14 +288,14 @@ import { An, Bt, C, ... } from "./maplibre-gl-shared.mjs";
 In a Next.js 16 / Turbopack environment, three approaches to set the worker URL all fail:
 
 | Approach | What happens | Symptom |
-|----------|-------------|---------|
+|----------|-------------|----------|
 | `new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).href` | Turbopack resolves the worker URL to a hashed `_next/static/media/...` path, but the **sibling `./maplibre-gl-shared.mjs` import** resolves relative to the hashed URL and 404s. | Blank canvas, zero errors. |
 | `setWorkerUrl('/maplibre-gl-worker.mjs')` (copy worker only to `public/`) | The worker loads from `public/`, but its `import "./maplibre-gl-shared.mjs"` resolves to `/maplibre-gl-shared.mjs` which doesn't exist in `public/`. Worker crashes on the import. | Blank canvas, zero errors. |
 | No `setWorkerUrl` call (auto-detect) | MapLibre's auto-detect checks `import.meta.url` — in a Turbopack bundle this doesn't start with `https?:`, so it returns empty string. Worker never loads. | Blank canvas, zero errors. |
 
 **Key insight**: The worker loads and begins executing, but the ESM import failure is **swallowed** — no error appears in the browser console. The map's `load` event still fires, but the worker can't process any GeoJSON data, so all sources render as empty.
 
-#### The Fix (Verified Working)
+#### The Fix (Verified Working — implemented in project)
 
 Copy **both** files to `public/` and rewrite the worker's import to use an absolute path:
 
@@ -251,7 +305,7 @@ Copy **both** files to `public/` and rewrite the worker's import to use an absol
  cp node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs public/
 
 # Rewrite the relative import to absolute
- sed -i 's|from"\./maplibre-gl-shared\.mjs"|from"/maplibre-gl-shared.mjs"|' \
+ sed -i 's|from"./maplibre-gl-shared\.mjs"|from"/maplibre-gl-shared.mjs"|' \
    public/maplibre-gl-worker.mjs
 ```
 
@@ -261,7 +315,7 @@ Then in your setup module:
 // lib/map/setup.ts
 import { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl } from 'maplibre-gl';
 
-export { Map, Popup, NavigationControl, AttributionControl };
+export { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl };
 
 let initialized = false;
 
@@ -290,25 +344,12 @@ export async function initMapLibre(): Promise<void> {
   if (initialized) return;
   initialized = true;
 
-  const workerUrl = new URL(
-    'maplibre-gl/dist/maplibre-gl-worker.mjs',
-    import.meta.url
-  ).href;
-  const sharedUrl = new URL(
-    'maplibre-gl/dist/maplibre-gl-shared.mjs',
-    import.meta.url
-  ).href;
+  const workerUrl = new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).href;
+  const sharedUrl = new URL('maplibre-gl/dist/maplibre-gl-shared.mjs', import.meta.url).href;
 
-  const [workerRes, sharedRes] = await Promise.all([
-    fetch(workerUrl),
-    fetch(sharedUrl),
-  ]);
-
+  const [workerRes, sharedRes] = await Promise.all([fetch(workerUrl), fetch(sharedUrl)]);
   let workerCode = await workerRes.text();
-  workerCode = workerCode.replace(
-    /from\s*"\.\/maplibre-gl-shared\.mjs"/,
-    `from "${sharedUrl}"`
-  );
+  workerCode = workerCode.replace(/from\s*"\.\/maplibre-gl-shared\.mjs"/, `from "${sharedUrl}"`);
 
   const blob = new Blob([workerCode], { type: 'text/javascript' });
   setWorkerUrl(URL.createObjectURL(blob));
@@ -340,23 +381,25 @@ When using `setFeatureState()` for hover/selection, the feature must have a nume
 
 ---
 
-## 3. Layer 1: Parliament Boundaries (22 Polygons)
+## 3. Layer 1: Parliament Boundaries (22 Polygons) — IMPLEMENTED
 
 ### 3.1 Data Specifications
 
 | Property | Value |
-|----------|-------|
+|----------|--------|
 | **Source file** | `electiondata_2018_parlimen.geojson` (filtered to Selangor) |
 | **Data provider** | ElectionData.MY (derived from SPR 2018 delimitation) |
 | **Features (Selangor)** | 22 polygons |
 | **Geometry type** | `Polygon` (single-part, not MultiPolygon) |
-| **Total vertices** | 7,563 (avg 344 per polygon) |
-| **Properties** | `state`, `parlimen`, `code_parlimen` (e.g. `"P.102"`) |
+| **Total vertices** | 4,386 (avg 199 per polygon) |
+| **Properties** | `state`, `parlimen`, `code_parlimen` (e.g. `"P.102"`), `voter_prefix` |
 | **CRS** | CRS84 (WGS84, EPSG:4326) |
-| **File size (Selangor-only, estimated)** | ~300-400 KB |
+| **File size (Selangor-only)** | **182 KB** (minified) |
 | **Render cost** | Negligible — 22 polygons is trivial for WebGL |
 
-### 3.2 Preprocessing Required
+> **Updated**: The actual processed file is 182 KB (not the originally estimated 300-400 KB). This is because the ElectionData Parliament GeoJSON was filtered to Selangor-only and saved minified.
+
+### 3.2 Preprocessing Required (Done)
 
 The source file contains 166 Peninsular features. Filter to Selangor 22 + add join properties:
 
@@ -372,7 +415,7 @@ sel = [f for f in data['features'] if f['properties']['state'] == 'Selangor']
 # Add voter-code-compatible ID for data-join
 for i, f in enumerate(sel):
     code = f['properties']['code_parlimen']  # "P.102"
-    f['properties']['voter_prefix'] = code.replace('P.', '')  # "092" (preserves zero-pad)
+    f['properties']['voter_prefix'] = code.replace('P.', '')  # "102" (preserves zero-pad)
     f['id'] = i + 1  # Integer ID for feature-state (top-level, NOT in properties)
 
 result = {
@@ -389,49 +432,42 @@ result = {
     "features": sel
 }
 
-with open('public/boundaries/selangor_parliament.geojson', 'w') as f:
-    json.dump(result, f)
+with open('dashboard/public/boundaries/selangor_parliament.geojson', 'w') as f:
+    json.dump(result, f)  # minified (no indent)
 
 print(f"Wrote {len(sel)} Parliament features")
 ```
 
-### 3.3 MapLibre Source & Layer Configuration
+### 3.3 MapLibre Source & Layer Configuration (Implemented)
 
 ```typescript
 // Add source
 map.addSource('parliament', {
   type: 'geojson',
-  data: parliamentGeoJSON,
+  data: joined, // GeoJSON after joinStatsToGeoJSON()
   // NOTE: Do NOT set promoteId here. Our GeoJSON uses standard
   // top-level feature.id (f.id = 1..22). promoteId looks inside
   // f.properties, which would override the valid top-level ID
-  // with undefined, breaking setFeatureState. (See §2.5 pitfall #3.)
+  // with undefined, breaking setFeatureState. (See §2.5.)
 });
 
-// Fill layer (choropleth)
+// Fill layer (choropleth) — color driven by active metric
+const scale = getScaleById(activeMetric);
+const colorExpr = buildColorExpression(scale.property, scale.stops);
+
 map.addLayer({
   id: 'parliament-fill',
   type: 'fill',
   source: 'parliament',
-  maxzoom: 9,  // Hide when zoomed into DUN level
+  // maxzoom: 9 — set in Phase 2 when DUN layer is added
   paint: {
-    'fill-color': [
-      'interpolate',
-      ['linear'],
-      ['get', 'total_voters'],
-      50000,   '#ffffcc',
-      100000,  '#a1dab4',
-      170000,  '#41b6c4',
-      220000,  '#2c7fb8',
-      340000,  '#253494',
-    ],
+    'fill-color': colorExpr, // ['interpolate', ['linear'], ['get', 'total_voters'], ...]
     'fill-opacity': [
       'case',
       ['boolean', ['feature-state', 'hover'], false],
-      0.9,  // Brighter on hover
-      0.7,  // Default
+      0.92,  // Brighter on hover
+      0.72,  // Default
     ],
-    'fill-antialias': true,
   },
 });
 
@@ -440,15 +476,15 @@ map.addLayer({
   id: 'parliament-border',
   type: 'line',
   source: 'parliament',
-  maxzoom: 9,
   paint: {
-    'line-color': '#1a1a2e',
+    'line-color': '#1e293b',
     'line-width': [
       'case',
       ['boolean', ['feature-state', 'hover'], false],
       2.5,  // Thicker on hover
-      1.0,  // Default
+      1,    // Default
     ],
+    'line-opacity': 0.8,
   },
 });
 
@@ -457,97 +493,95 @@ map.addLayer({
   id: 'parliament-label',
   type: 'symbol',
   source: 'parliament',
-  maxzoom: 9,
   layout: {
     'text-field': ['get', 'code_parlimen'],
-    'text-size': 13,
+    'text-size': 12,
     'text-font': ['Open Sans Regular'],
     'text-anchor': 'center',
+    'text-allow-overlap': false,
+    'text-ignore-placement': false,
   },
   paint: {
-    'text-color': '#1a1a2e',
-    'text-halo-color': 'rgba(255,255,255,0.8)',
+    'text-color': '#0f172a',
+    'text-halo-color': 'rgba(255,255,255,0.85)',
     'text-halo-width': 1.5,
   },
 });
 ```
 
-### 3.4 Interaction: Click Popup with Stats
+### 3.4 Interaction: Click Popup with Stats (Implemented)
 
 ```typescript
-const popup = new maplibregl.Popup({
+const popup = new Popup({
   closeButton: true,
   closeOnClick: false,
   anchor: 'top',
-  maxWidth: '320px',
+  maxWidth: '340px',
+  offset: 10,
   className: 'parliament-popup',
 });
 
 map.on('click', 'parliament-fill', (e) => {
   if (!e.features?.length) return;
-  const props = e.features[0].properties;
-  const coords = e.lngLat;
-
-  popup
-    .setLngLat(coords)
-    .setHTML(`
-      <div class="p-3">
-        <h3 class="font-bold text-lg">${props.code_parlimen} — ${props.parlimen.replace('P.\\d+ ', '')}</h3>
-        <p class="text-sm text-gray-600">Parliamentary Constituency</p>
-        <hr class="my-2">
-        <p><strong>Total Voters:</strong> ${Number(props.total_voters).toLocaleString()}</p>
-        <p><strong>Gender:</strong> M ${props.male_pct}% | F ${props.female_pct}%</p>
-        <p><strong>Malay:</strong> ${props.malay_pct}% | <strong>Chinese:</strong> ${props.chinese_pct}% | <strong>Indian:</strong> ${props.indian_pct}%</p>
-        <p><strong>Mean Age:</strong> ${props.age_mean} | <strong>Contact:</strong> ${props.contact_pct}%</p>
-        <hr class="my-2">
-        <p class="text-xs text-gray-400">Contains ${props.child_dun_count} DUNs</p>
-      </div>
-    `)
-    .addTo(map);
+  const props = e.features[0].properties as unknown as PopupData;
+  popup.setLngLat(e.lngLat).setHTML(buildPopupHTML(props)).addTo(map);
 });
+```
 
-// Change cursor on hover
-map.on('mouseenter', 'parliament-fill', () => {
+The popup displays: total voters, male/female counts and percentages, Malay/Chinese/Indian/Other percentages, mean/median age, contact %, and DUN count. HTML is built by a standalone `buildPopupHTML()` function using inline styles (since MapLibre popups are outside React's DOM).
+
+### 3.5 Hover Highlight via `feature-state` (Implemented)
+
+```typescript
+let hoveredIdRef = useRef<number | null>(null);
+
+map.on('mousemove', 'parliament-fill', (e) => {
+  if (!e.features?.length) return;
+  const fid = e.features[0].id as number;
+  if (hoveredIdRef.current !== null && hoveredIdRef.current !== fid) {
+    map.setFeatureState(
+      { source: 'parliament', id: hoveredIdRef.current },
+      { hover: false },
+    );
+  }
+  hoveredIdRef.current = fid;
+  map.setFeatureState(
+    { source: 'parliament', id: fid },
+    { hover: true },
+  );
   map.getCanvas().style.cursor = 'pointer';
 });
+
 map.on('mouseleave', 'parliament-fill', () => {
+  if (hoveredIdRef.current !== null) {
+    map.setFeatureState(
+      { source: 'parliament', id: hoveredIdRef.current },
+      { hover: false },
+    );
+    hoveredIdRef.current = null;
+  }
   map.getCanvas().style.cursor = '';
 });
 ```
 
-### 3.5 Hover Highlight via `feature-state`
+### 3.6 Sidebar with Metric Selector (Implemented)
+
+The sidebar includes a `<select>` dropdown that triggers choropleth repaint:
 
 ```typescript
-let hoveredParlId: number | null = null;
+// When user changes metric
+const updateMetric = useCallback((metricId: string) => {
+  const map = mapRef.current;
+  if (!map) return;
+  const scale = getScaleById(metricId);
+  const colorExpr = buildColorExpression(scale.property, scale.stops);
+  map.setPaintProperty('parliament-fill', 'fill-color', colorExpr);
+}, []);
 
-map.on('mousemove', 'parliament-fill', (e) => {
-  if (!e.features?.length) return;
-  const featureId = e.features[0].id;
-
-  if (hoveredParlId !== null && hoveredParlId !== featureId) {
-    map.setFeatureState(
-      { source: 'parliament', id: hoveredParlId },
-      { hover: false }
-    );
-  }
-
-  hoveredParlId = featureId;
-  map.setFeatureState(
-    { source: 'parliament', id: featureId },
-    { hover: true }
-  );
-});
-
-map.on('mouseleave', 'parliament-fill', () => {
-  if (hoveredParlId !== null) {
-    map.setFeatureState(
-      { source: 'parliament', id: hoveredParlId },
-      { hover: false }
-    );
-    hoveredParlId = null;
-  }
-});
+useEffect(() => { updateMetric(activeMetric); }, [activeMetric, updateMetric]);
 ```
+
+Seven metrics are available: Total Voters (YlGnBu), Malay % (YlOrRd), Chinese % (Oranges), Indian % (Greens), Mean Age (Viridis), Contact % (PuBu), Female % (PiYG).
 
 ---
 
@@ -556,54 +590,72 @@ map.on('mouseleave', 'parliament-fill', () => {
 ### 4.1 Data Specifications
 
 | Property | Value |
-|----------|-------|
-| **Source file** | `dosm_dun.json` (filtered to Selangor) |
-| **Data provider** | DOSM KawasanKu (Department of Statistics, Malaysia) |
+|----------|--------|
+| **Source file** | `electiondata_2018_dun.geojson` (filtered to Selangor) |
+| **Data provider** | ElectionData.MY (derived from SPR 2018 delimitation) |
 | **Features (Selangor)** | 56 polygons |
-| **Geometry type** | `MultiPolygon` |
-| **Total vertices** | 4,219 (avg 75 per polygon) |
-| **Properties** | `state`, `parlimen`, `dun`, `code_state`, `code_parlimen`, `code_dun`, `code_state_dun` |
-| **Sample** | `{"dun":"N.25 Kajang", "code_dun":"N.25", "code_parlimen":"P.102"}` |
+| **Geometry type** | `Polygon` (single-part, not MultiPolygon) |
+| **Total vertices** | 8,600 (avg 154 per polygon) |
+| **Properties** | `state`, `parlimen`, `code_parlimen`, `dun`, `code_dun` |
+| **Sample** | `{"dun":"N.01 Sungai Air Tawar", "code_dun":"N.01", "code_parlimen":"P.092"}` |
 | **CRS** | CRS84 (WGS84) |
-| **File size (Selangor-only, estimated)** | ~200-300 KB |
+| **Full file size** | 2,303 KB (445 Peninsular features) |
+| **Est. Selangor-only size** | ~200-300 KB |
 | **Parent mapping** | Each DUN includes `code_parlimen` enabling Parliament → DUN hierarchy |
 
-### 4.2 Preprocessing Required
+> **UPDATED**: The DUN source has been changed from **DOSM KawasanKu** to **ElectionData.MY**. The ElectionData DUN file provides 2x more vertex detail (8,600 vs ~4,219 vertices) and uses cleaner `Polygon` geometry instead of `MultiPolygon`. It also provides consistent property naming (`code_dun`, `code_parlimen`) that aligns with the Parliament file from the same provider. The DOSM file remains available as a backup at `boundaries/research/dosm_dun.json` and `boundaries/research/corrected/dosm_dun_new.json`.
+
+### 4.2 Why ElectionData.MY over DOSM for DUN
+
+| Criterion | ElectionData.MY | DOSM KawasanKu |
+|-----------|:--------------:|:--------------:|
+| Selangor match | 56/56 (100%) | 56/56 (100%) |
+| Geometry type | `Polygon` | `MultiPolygon` |
+| Vertex count | 8,600 (154 avg) | ~4,219 (75 avg) |
+| Detail level | Higher (2x) | Lower |
+| Property schema | `code_dun`, `code_parlimen` | `code_dun`, `code_parlimen`, `code_state_dun` |
+| Consistency with L1 | Same provider as Parliament | Different provider |
+| Delimitation year | Explicitly 2018 | Unclear (likely 2018) |
+
+The ElectionData source wins on: higher geometric detail, consistent provider across L1 and L2, simpler geometry type, and explicit 2018 delimitation labeling.
+
+### 4.3 Preprocessing Required
 
 ```python
 # scripts/filter_dun.py
 import json
 
-with open('boundaries/research/dosm_dun.json') as f:
+with open('boundaries/research/electiondata_2018_dun.geojson') as f:
     data = json.load(f)
 
 sel = [f for f in data['features'] if f['properties']['state'] == 'Selangor']
 
 for i, f in enumerate(sel):
-    f['properties']['voter_prefix'] = f['properties']['code_dun'].replace('N.', '')  # "01" (preserves zero-pad)
+    f['properties']['voter_prefix'] = f['properties']['code_dun'].replace('N.', '')
     f['properties']['parent_parl'] = f['properties']['code_parlimen']  # "P.102"
     f['id'] = i + 1  # Integer ID for feature-state (top-level, NOT in properties)
 
 result = {
     "type": "FeatureCollection",
     "metadata": {
-        "title": "Selangor DUN Constituency Boundaries",
+        "title": "Selangor DUN Constituency Boundaries (2018 Delimitation)",
         "authority": "Suruhanjaya Pilihan Raya (SPR)",
-        "derived_from": "SPR delimitation exercises",
-        "data_provider": "DOSM KawasanKu",
-        "license": "Government open data (DOSM)",
+        "derived_from": "SPR 2018 Peninsular Malaysia delimitation",
+        "data_provider": "ElectionData.MY",
+        "source_url": "https://electiondata.my",
+        "license": "Open data (see ElectionData.MY terms)",
         "notes": "Derived open dataset; not the legal instrument."
     },
     "features": sel
 }
 
-with open('public/boundaries/selangor_dun.geojson', 'w') as f:
+with open('dashboard/public/boundaries/selangor_dun.geojson', 'w') as f:
     json.dump(result, f)
 
 print(f"Wrote {len(sel)} DUN features")
 ```
 
-### 4.3 Zoom-Based Visibility Strategy
+### 4.4 Zoom-Based Visibility Strategy
 
 The core UX pattern is **Parliament at low zoom, DUN at higher zoom**:
 
@@ -616,7 +668,7 @@ The core UX pattern is **Parliament at low zoom, DUN at higher zoom**:
 
 ```typescript
 // Parliament: full at low zoom, outline only at medium zoom
-// parliament-fill: maxzoom: 9 (set in layer config above)
+// parliament-fill: maxzoom: 9 (add when DUN layer is implemented)
 // parliament-border: no maxzoom (always visible as outline)
 // parliament-label: maxzoom: 9
 
@@ -647,7 +699,7 @@ map.addLayer({
 });
 ```
 
-### 4.4 Parliament → DUN Drill-Down
+### 4.5 Parliament → DUN Drill-Down
 
 When a user clicks a Parliament polygon, fly to its extent and show DUNs:
 
@@ -658,13 +710,12 @@ map.on('click', 'parliament-fill', (e) => {
   const voterPrefix = props.voter_prefix; // e.g. "102"
 
   // Filter DUN layer to show only this Parliament's DUNs
-  map.setFilter('dun-fill', ['==', ['get', 'voter_prefix'], voterPrefix]);
-  map.setFilter('dun-border', ['==', ['get', 'voter_prefix'], voterPrefix]);
-  map.setFilter('dun-label', ['==', ['get', 'voter_prefix'], voterPrefix]);
+  map.setFilter('dun-fill', ['==', ['get', 'parent_parl'], props.code_parlimen]);
+  map.setFilter('dun-border', ['==', ['get', 'parent_parl'], props.code_parlimen]);
+  map.setFilter('dun-label', ['==', ['get', 'parent_parl'], props.code_parlimen]);
 
   // Fly to the Parliament's bounding box
   const bounds = new maplibregl.LngLatBounds();
-  const parliamentGeoJSON = map.getSource('parliament')?.serialize();
   // ... compute bounds from geometry ...
   map.fitBounds(bounds, { padding: 50, duration: 1000 });
 });
@@ -679,7 +730,9 @@ map.on('zoomend', () => {
 });
 ```
 
-### 4.5 DUN → Demographics Popup
+> **Note**: The drill-down filter uses `parent_parl` (the `code_parlimen` value like `"P.102"`) rather than `voter_prefix` for clearer semantics.
+
+### 4.6 DUN → Demographics Popup
 
 Same pattern as Parliament popup but with richer demographics:
 
@@ -704,7 +757,7 @@ map.on('click', 'dun-fill', (e) => {
         <strong>Race:</strong> M ${props.malay_pct}% | C ${props.chinese_pct}% | I ${props.indian_pct}% | B+TBC ${props.other_pct}%
       </p>
       <p class="text-xs mt-1">
-        <strong>Contact:</strong> ${props.contact_pct}% | <strong>GPS:</strong> ${props.gps_pct}%
+        <strong>Contact:</strong> ${props.contact_pct}%
       </p>
     </div>
   `).addTo(map);
@@ -742,7 +795,7 @@ function generateDMCentroids(
   const features: GeoJSON.Feature[] = [];
 
   for (const dunFeature of dunGeoJSON.features) {
-    const dunCode = dunFeature.properties!.code_dun; // "N.25"
+    const dunCode = dunFeature.properties!.code_dun; // "N.01"
     const dmsInDun = dmStats.filter(dm => dm.parent_dun === dunCode);
 
     if (dmsInDun.length === 0) continue;
@@ -814,19 +867,18 @@ dmsInDun.forEach((dm, i) => {
 # scripts/generate_dm_centroids.py
 import json
 import numpy as np
-from shapely.geometry import shape, mapping, Point, MultiPoint
-from shapely.ops import unary_union
+from shapely.geometry import shape, mapping, Point
 
-with open('public/boundaries/selangor_dun.geojson') as f:
+with open('dashboard/public/boundaries/selangor_dun.geojson') as f:
     dun_data = json.load(f)
 
-with open('public/stats/dm.json') as f:
+with open('dashboard/public/stats/dm.json') as f:
     dm_stats = json.load(f)
 
 features = []
 for dun in dun_data['features']:
     poly = shape(dun['geometry'])
-    parent_code = dun['properties']['code_dun']  # "N.25"
+    parent_code = dun['properties']['code_dun']  # "N.01"
     dms = [d for d in dm_stats if d['parent_dun'] == parent_code]
 
     if not dms:
@@ -862,7 +914,7 @@ for dun in dun_data['features']:
             }
         })
 
-with open('public/boundaries/dm_centroids.geojson', 'w') as f:
+with open('dashboard/public/boundaries/dm_centroids.geojson', 'w') as f:
     json.dump({"type": "FeatureCollection", "features": features}, f)
 
 print(f"Generated {len(features)} DM centroids")
@@ -1008,7 +1060,7 @@ Key flags explained:
 | `--maximum-tile-bytes=500000` | 500 KB per tile max — ensures fast loading |
 | `--extended-feature-id` | Preserve feature IDs across zoom levels |
 | `--attribute-X` | Include only these properties in tiles (strip the rest to save space) |
-| `-l voters` | Layer name inside the tileset (used in `source-layer`)
+| `-l voters` | Layer name inside the tileset (used in `source-layer`) |
 
 ### 6.4 PMTiles Serving Architecture
 
@@ -1063,7 +1115,7 @@ map.addLayer({
 ### 6.6 Expected Tileset Size
 
 | Metric | Estimate |
-|--------|---------|
+|--------|----------|
 | Raw GeoJSON (3.97M points, 6 properties each) | ~800 MB - 1.2 GB |
 | PMTiles (with `--drop-densest-as-needed`) | ~100-300 MB |
 | Per-tile size at zoom 14 (urban area) | ~200-500 KB |
@@ -1082,43 +1134,17 @@ Yes, **non-spatial properties are fully preserved** in vector tiles. All include
 
 ## 7. Data-Join: Merging Stats JSON with GeoJSON
 
-The voter stats (pre-computed from Python aggregation) must be joined to GeoJSON boundary features at runtime. Two approaches:
+The voter stats (pre-computed from Python aggregation) must be joined to GeoJSON boundary features at runtime.
 
-### 7.1 Pre-join at Build Time (Recommended)
+### 7.1 Pre-join at Build Time (Implemented)
 
-```typescript
-// lib/join-stats.ts
-export function joinStatsToGeoJSON(
-  geojson: GeoJSON.FeatureCollection,
-  stats: Record<string, VoterStats>,
-  codeField: string, // 'voter_prefix' — the preprocessed matching field
-): GeoJSON.FeatureCollection {
-  return {
-    ...geojson,
-    features: geojson.features.map(f => ({
-      ...f,
-      properties: {
-        ...f.properties,
-        ...stats[f.properties?.[codeField]],
-      },
-    })),
-  };
-}
-}
-
-// Usage in MapDashboard
-const [parlGeo, parlStats, dunGeo, dunStats, dmCentroids, dmStats] =
-  await Promise.all([...]);
-
-const parlJoined = joinStatsToGeoJSON(parlGeo, parlStats, 'voter_prefix');
-const dunJoined = joinStatsToGeoJSON(dunGeo, dunStats, 'voter_prefix');
-```
-
-### 7.2 Stats JSON Schema
+The project implements this as a client-side join in `src/lib/map/join-stats.ts`:
 
 ```typescript
-// public/stats/parliament.json — keyed by voter_prefix
-interface VoterStats {
+// src/lib/map/join-stats.ts
+export interface ParliamentStats {
+  code_parlimen: string;
+  name: string;
   total_voters: number;
   male: number;
   female: number;
@@ -1130,320 +1156,53 @@ interface VoterStats {
   other_pct: number;
   age_mean: number;
   age_median: number;
-  age_brackets: Record<string, number>;
   contact_pct: number;
-  gps_pct: number;
-  child_dun_count: number; // Parliament only
-  dm_count: number;         // DUN only
-  locality_count: number;   // DUN only
-  parent_parl: string;      // DUN only
+  child_dun_count: number;
 }
 
-// File structure (keys MUST be 3-digit zero-padded to match GeoJSON voter_prefix):
+export type StatsMap = Record<string, ParliamentStats>;
+
+export function joinStatsToGeoJSON(
+  geojson: GeoJSON.FeatureCollection,
+  stats: StatsMap,
+  codeField = 'voter_prefix'
+): GeoJSON.FeatureCollection {
+  return {
+    ...geojson,
+    features: geojson.features.map((f) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        ...(stats[String(f.properties?.[codeField])] ?? {}),
+      },
+    })),
+  };
+}
+```
+
+Usage in `MapDashboard.tsx`:
+
+```typescript
+const [geoRes, statsRes] = await Promise.all([
+  fetch('/boundaries/selangor_parliament.geojson'),
+  fetch('/stats/parliament.json'),
+]);
+const geojson = await geoRes.json();
+const stats: StatsMap = await statsRes.json();
+const joined = joinStatsToGeoJSON(geojson, stats);
+```
+
+### 7.2 Stats JSON Schema
+
+```typescript
+// public/stats/parliament.json — keyed by voter_prefix (3-digit zero-padded)
+// Example:
 // {
-//   "092": { "code_parlimen": "P.092", "total_voters": 52847, ... },
-//   "093": { "code_parlimen": "P.093", "total_voters": 65970, ... },
-//   "100": { "code_parlimen": "P.100", "total_voters": 155756, ... },
+//   "100": { "code_parlimen": "P.100", "name": "PANDAN", "total_voters": 155756, ... },
+//   "101": { "code_parlimen": "P.101", "name": "HULU LANGAT", "total_voters": 186297, ... },
+//   "102": { "code_parlimen": "P.102", "name": "BANGI", "total_voters": 336552, ... },
 //   ...
 // }
-//
-// ⚠️  CRITICAL: code_parlimen "P.092" → voter_prefix "092" (3 digits).
-// Stats keys MUST match exactly. Unpadded keys ("92") cause the
-// data-join to silently miss 8 of 22 features → blank choropleth.
 ```
 
----
-
-## 8. Choropleth Color Scales
-
-### 8.1 Recommended Palettes
-
-| Metric | Palette | Type | Colors (5-class) |
-|--------|---------|------|-----------------|
-| Total voters | YlGnBu | Sequential | `#ffffcc` → `#a1dab4` → `#41b6c4` → `#2c7fb8` → `#253494` |
-| Gender ratio (M:F) | PiYG | Diverging | `#e41a1c` → `#f7f7f7` → `#4daf4a` |
-| Malay % | YlOrRd | Sequential | `#ffffb2` → `#fecc5c` → `#fd8d3c` → `#f03b20` → `#bd0026` |
-| Chinese % | Oranges | Sequential | `#fff5eb` → `#fee6ce` → `#fdd0a2` → `#fdae6b` → `#e6550d` |
-| Indian % | Greens | Sequential | `#f7fcf5` → `#e5f5e0` → `#c7e9c0` → `#a1d99b` → `#31a354` |
-| Mean age | Viridis | Sequential | `#440154` → `#31688e` → `#35b779` → `#fde725` |
-| Contact % | PuBu | Sequential | `#f7fbff` → `#c6dbef` → `#6baed6` → `#2171b5` → `#08306b` |
-
-### 8.2 Generating Breaks (Jenks Natural Breaks)
-
-For choropleth classification, **Jenks natural breaks** (k-means clustering of values) produces the most visually meaningful class boundaries. Implement in the Python preprocessing step:
-
-```python
-# scripts/compute_choropleth_breaks.py
-import json
-import jenkspy  # pip install jenkspy
-
-with open('public/stats/parliament.json') as f:
-    stats = json.load(f)
-
-values = [v['total_voters'] for v in stats.values()]
-breaks = jenkspy.jenks_breaks(values, n_classes=5)
-# Example output: [52847, 155756, 204037, 250418, 336552]
-
-print(f"5-class Jenks breaks for Parliament voter count:")
-for i, (low, high) in enumerate(zip(breaks[:-1], breaks[1:])):
-    print(f"  Class {i+1}: {low:,} – {high:,}")
-```
-
----
-
-## 9. Memory Management & Performance
-
-### 9.1 Source/Layer Lifecycle
-
-```typescript
-// Correct removal order: layers first, then source
-function removeLayerSafely(map: maplibregl.Map, layerId: string, sourceId: string) {
-  if (map.getLayer(layerId)) map.removeLayer(layerId);
-  if (map.getSource(sourceId)) map.removeSource(sourceId);
-}
-
-// Map destruction (critical in React StrictMode double-mount)
-useEffect(() => {
-  // ... init ...
-  return () => {
-    mapRef.current?.remove(); // Cleans up all sources, layers, WebGL context
-    mapRef.current = null;
-  };
-}, []);
-```
-
-### 9.2 Performance Characteristics Per Layer
-
-| Layer | Features | Vertices | GeoJSON Size | Parse Time (est.) | Render Cost |
-|:-----:|:--------:|:--------:|:------------:|:-----------------:|:-----------:|
-| Parliament | 22 | 7,563 | ~350 KB | <50 ms | Negligible |
-| DUN | 56 | 4,219 | ~250 KB | <50 ms | Negligible |
-| DM centroids | 945 | 945 points | ~100 KB | <10 ms | Negligible |
-| Voter points (L4) | 3.97M | 3.97M points | ~200 MB (tiles) | N/A (streamed) | Per-tile rendering |
-
-**Total Layers 1-3: ~700 KB GeoJSON, ~13,700 vertices** — MapLibre handles this in under 100ms total. No performance optimization needed for these layers.
-
-### 9.3 Debounce Hover Handlers
-
-```typescript
-// Avoid processing on every mousemove pixel
-let hoverTimeout: NodeJS.Timeout;
-
-map.on('mousemove', 'dun-fill', (e) => {
-  if (hoverTimeout) clearTimeout(hoverTimeout);
-  hoverTimeout = setTimeout(() => {
-    // Update feature-state and tooltip
-  }, 16); // ~60fps throttle
-});
-```
-
-### 9.4 GeoJSON Optimization Tips
-
-For the Selangor-filtered files, apply these optimizations in the Python preprocessing step:
-
-1. **Reduce coordinate precision** to 6 decimal places (~1cm accuracy, more than enough):
-   ```python
-   # Round all coordinates to 6 decimal places
-   from shapely.geometry import shape, mapping
-   geom = shape(feature['geometry'])
-   geom = geom.simplify(0, preserve_topology=True)  # No simplification, just precision
-   ```
-
-2. **Strip unused properties** before saving:
-   ```python
-   # Only keep properties needed for rendering and data-join
-   keep_keys = ['code_parlimen', 'parlimen', 'voter_prefix', 'id']
-   feature['properties'] = {k: v for k, v in feature['properties'].items() if k in keep_keys}
-   ```
-
-3. **Minify JSON** (no whitespace) — already the default for `json.dump()` without `indent`.
-
----
-
-## 10. Complete Component Architecture
-
-### 10.1 File Structure (Updated)
-
-```
-slgrvtrs-dashboard/
-├── app/
-│   ├── layout.tsx                    # Root layout
-│   ├── page.tsx                      # Server Component → dynamic import MapDashboard
-│   ├── globals.css                   # Tailwind + map popup styles
-│   └── api/
-│       └── stats/
-│           ├── parliament/route.ts   # GET /api/stats/parliament (or serve static)
-│           └── dun/route.ts          # GET /api/stats/dun
-├── components/
-│   ├── map/
-│   │   ├── MapDashboard.tsx          # 'use client' — main map orchestrator
-│   │   ├── sources.ts                # addSource() calls for all 4 layers
-│   │   ├── layers/
-│   │   │   ├── ParliamentLayer.ts    # L1: fill + border + label + hover + click
-│   │   │   ├── DUNLayer.ts            # L2: fill + border + label + hover + click
-│   │   │   ├── DMCentroidLayer.ts     # L3: circle + tooltip
-│   │   │   └── VoterPointsLayer.ts    # L4 (future): vector tile circle layer
-│   │   ├── interactions.ts           # Popup, tooltip, hover state management
-│   │   └── Legend.tsx                 # Dynamic choropleth legend
-│   ├── sidebar/
-│   │   ├── LayerToggle.tsx            # Layer visibility checkboxes
-│   │   ├── MetricSelector.tsx         # Dropdown: total / gender / race / age
-│   │   └── FilterPanel.tsx            # Race/gender/age range filters
-│   └── charts/
-│       ├── GenderBar.tsx              # Horizontal stacked bar
-│       ├── RacePie.tsx                # Donut chart
-│       └── AgeHistogram.tsx           # Bar chart
-├── lib/
-│   ├── map-setup.ts                  # Worker URL config (ESM worker + shared module — see §2.5)
-│   ├── join-stats.ts                 # Stats JSON → GeoJSON property merge (keys must be zero-padded)
-│   ├── color-scales.ts               # Choropleth color functions + Jenks breaks
-│   └── code-mapping.ts               # Voter code ↔ GeoJSON code utilities
-├── hooks/
-│   ├── useMap.ts                     # Map instance ref + init logic
-│   ├── useFeatureState.ts            # Hover/selection state manager
-│   └── useBoundaryData.ts            # Data loading + join orchestration
-├── public/
-│   ├── boundaries/
-│   │   ├── selangor_parliament.geojson    # 22 features, ~350 KB
-│   │   ├── selangor_dun.geojson            # 56 features, ~250 KB
-│   │   ├── selangor_outline.geojson       # 1 feature, ~20 KB
-│   │   └── dm_centroids.geojson           # 945 features, ~100 KB
-│   ├── maplibre-gl-worker.mjs           # ESM worker (rewritten import, see §2.5)
-│   ├── maplibre-gl-shared.mjs           # Worker shared module (sibling dep)
-│   └── stats/
-│       ├── parliament.json               # 22 records keyed by voter_prefix
-│       ├── dun.json                      # 56 records keyed by voter_prefix
-│       └── dm.json                       # 945 records keyed by dm_code
-├── data-processing/
-│   ├── aggregate_stats.py              # XLSX → stats JSON (python-calamine + pandas)
-│   ├── filter_parliament.py            # ElectionData → Selangor 22 + voter_prefix
-│   ├── filter_dun.py                   # DOSM → Selangor 56 + voter_prefix + parent
-│   ├── generate_dm_centroids.py        # DM stats + DUN polys → centroid GeoJSON
-│   └── compute_choropleth_breaks.py    # Jenks natural breaks for each metric
-├── tiles/
-│   └── build_voter_tiles.sh            # tippecanoe pipeline for Layer 4
-├── package.json
-├── tsconfig.json                      # target: "ES2022"
-├── tailwind.config.ts
-└── next.config.ts
-```
-
-### 10.2 Component Hierarchy
-
-```
-page.tsx (Server Component)
-  └── MapDashboard (Client Component, dynamic import ssr:false)
-        ├── MapLibre Map (imperative, via useMap hook)
-        │     ├── ParliamentLayer (L1)
-        │     ├── DUNLayer (L2)
-        │     ├── DMCentroidLayer (L3)
-        │     └── VoterPointsLayer (L4, future)
-        ├── Sidebar
-        │     ├── LayerToggle
-        │     ├── MetricSelector → triggers layer.paint updates
-        │     └── FilterPanel
-        ├── Legend (reads current metric's color scale)
-        └── Popup/Tooltip (managed by interactions.ts)
-```
-
----
-
-## 11. Updated Source Decisions
-
-The original `MAPLIBRE_PROJECT.md` recommended MECo for boundaries. After the download research in `BOUNDARY_SOURCES_RESEARCH.md`, the sources have been updated:
-
-| Layer | Original Plan | Updated Decision | Reason |
-|:-----:|:-------------:|:----------------:|--------|
-| Parliament (L1) | MECo (not yet tested) | **ElectionData.MY** | 22/22 match, 7,563 vertices (2.7x more detail), explicitly 2018 delimitation |
-| DUN (L2) | MECo (not yet tested) | **DOSM KawasanKu** | Only source with DUN boundaries, 56/56 match, includes parent Parliament mapping |
-| State outline | geoBoundaries ADM1 | **JAKIM** | 1/1 match, ~200 vertices, lightweight |
-| DM centroids (L3) | Not specified | **Generated from voter data** | No DM boundary polygons exist. 945 centroids from DM grouping + DUN polygon grid |
-| Voter points (L4) | tippecanoe tiles | **tippecanoe → PMTiles** | Same approach, updated to PMTiles for static hosting |
-
----
-
-## 12. Dependency Versions
-
-| Package | Version | Purpose |
-|---------|:-------:|---------|
-| `maplibre-gl` | **6.3.0** | WebGL2 map rendering (ESM-only) |
-| `next` | **16.x** | App Router, API routes, React 19 |
-| `react` | **19.x** | UI framework (via Next.js 16) |
-| `typescript` | **5.x** | Type safety, target ES2022 |
-| `tailwindcss` | **4.x** | Utility-first CSS |
-| `@turf/turf` | **7.x** | Geometry operations (centroid, point-in-polygon, grid) |
-| `pmtiles` | **3.x** | PMTiles protocol for MapLibre (Layer 4) |
-| `recharts` | **2.x** | Popup charts (gender bar, race pie, age histogram) |
-| `jenkspy` | **2.x** (Python) | Jenks natural breaks for choropleth classification |
-| `python-calamine` | **0.2x** (Python) | Fast XLSX reading for stats aggregation |
-| `pandas` | **2.x** (Python) | Data processing and aggregation |
-
-**NOT used** (explicitly excluded):
-
-| Package | Reason |
-|---------|--------|
-| `react-map-gl` | Known React 19 + Turbopack compatibility bugs |
-| `@maplibre/maplibre-gl-js/plugins` (supercluster) | Supercluster is built into GeoJSONSource — no separate plugin needed |
-| `openpyxl` | Too slow for 4M rows; python-calamine is 14x faster |
-
----
-
-## 13. Implementation Phases (Updated)
-
-### Phase 1: Foundation (Week 1-2)
-- [x] Research and validate boundary sources
-- [x] Set up Next.js 16 project with MapLibre GL JS 6.3
-- [x] **Configure ESM worker** — copy worker + shared module to `public/`, rewrite import (see §2.5)
-- [x] Run Python aggregation scripts → `stats/parliament.json`, `stats/dun.json`, `stats/dm.json`
-- [x] **Validate data-join key format** — stats keys must be 3-digit zero-padded ("092"-"113") to match GeoJSON `voter_prefix`
-- [x] Filter ElectionData Parliament → `selangor_parliament.geojson` (22 features, top-level `id`)
-- [ ] Filter DOSM DUN → `selangor_dun.geojson` (56 features, top-level `id`)
-- [ ] Filter JAKIM state → `selangor_outline.geojson` (1 feature)
-- [x] Implement MapDashboard with Parliament choropleth (Layer 1)
-- [x] Add click popup with stats, hover highlight via feature-state (no `promoteId` — see §2.5)
-- [x] Add sidebar with metric selector (total / gender / race / age)
-
-### Phase 2: DUN Drill-Down (Week 3)
-- [ ] Add DUN boundary layer (Layer 2) with zoom-based visibility
-- [ ] Implement Parliament → DUN drill-down on click
-- [ ] DUN popup with full demographics
-- [ ] Color legend component
-- [ ] Layer toggle controls
-
-### Phase 3: DM Visualization (Week 4)
-- [ ] Generate DM centroids (Strategy A: Turf.js grid-in-polygon or Strategy C: Python Shapely)
-- [ ] Implement DM bubble layer (Layer 3) with proportional sizing
-- [ ] DM tooltip with voter count and name
-- [ ] Race/gender filter controls in sidebar
-
-### Phase 4: Polish & Deploy (Week 5)
-- [ ] Responsive design (mobile sidebar collapse, touch interactions)
-- [ ] Loading states, error boundaries, empty states
-- [ ] Provenance panel (reads GeoJSON metadata block)
-- [ ] Performance audit (Lighthouse)
-- [ ] Deploy to Vercel
-
-### Phase 5: Individual Points (Future)
-- [ ] Geocode voter addresses (batch Nominatim/Google Maps) or use DM centroids
-- [ ] Build tippecanoe pipeline → `voters.pmtiles`
-- [ ] Upload PMTiles to S3/Cloudflare R2
-- [ ] Implement PMTiles protocol + voter point layer (Layer 4)
-- [ ] Deep zoom individual voter exploration with popups
-
----
-
-## 14. References
-
-- [MapLibre GL JS v6.0.0 Release Notes](https://github.com/maplibre/maplibre-gl-js/releases/tag/v6.0.0)
-- [MapLibre GL JS Documentation](https://maplibre.org/maplibre-gl-js/docs/)
-- [MapLibre Tips for Large GeoJSON Datasets](https://www.maplibre.org/maplibre-gl-js/docs/guides/large-data)
-- [MapLibre `feature-state` API](https://maplibre.org/maplibre-gl-js/docs/api/map/#map#setfeaturestate)
-- [PMTiles Specification](https://github.com/protomaps/PMTiles)
-- [tippecanoe](https://github.com/felt/tippecanoe) — Vector tile generation
-- [Martin Tile Server v1.13](https://github.com/maplibre/martin)
-- [Turf.js](https://turfjs.org/) — Geospatial analysis
-- [ElectionData.MY](https://electiondata.my) — Parliament boundary source
-- [DOSM KawasanKu](https://kawasanku.dosm.gov.my) — DUN boundary source
-- [JAKIM GeoJSON](https://github.com/mptwaktusolat/jakim.geojson) — State boundary source
-- [Project Provenance](./docs/provenance.md) — Full data provenance and disclaimers
-- [Boundary Sources Research](./BOUNDARY_SOURCES_RESEARCH.md) — Source comparison and download results
+> **CRITICAL**: The keys are 3-digit zero-padded strings (`"100"`, `"101"`, ..., `"113"`). The GeoJSON `voter_prefix` property must use the same format. The `code_parlimen` field (e.g. `
