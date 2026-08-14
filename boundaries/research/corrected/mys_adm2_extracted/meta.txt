@@ -1,0 +1,12 @@
+Boundary Representative of Year: 2020
+ISO-3166-1 (Alpha-3): MYS
+Boundary Type: ADM2
+Canonical Boundary Type Name: Districts
+Source 1: geoBoundaries
+Source 2: citypopulation.de
+Release Type: gbOpen
+License: Creative Commons Attribution 3.0 License
+License Notes: 
+License Source: https://www.citypopulation.de/en/help/termsofuse/
+Link to Source Data: https://www.citypopulation.de/en/malaysia/admin/
+Other Notes: 
