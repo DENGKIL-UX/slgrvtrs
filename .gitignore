@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 7z original
+*.7z
+*.7z.001
+*.7z.002
+*.7z.003
+*.7z.004
+*.7z.005
+*.7z.006
+
+# Analysis intermediates
+analysis/
+scripts/analysis_result.json
+scripts/summary.json
