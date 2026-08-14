@@ -18,3 +18,7 @@ Thumbs.db
 # Intermediates (keep final outputs)
 scripts/analysis_result.json
 scripts/summary.json
+dashboard/.next/
+dashboard/next-env.d.ts
+dashboard/tsconfig.tsbuildinfo
+*.log
