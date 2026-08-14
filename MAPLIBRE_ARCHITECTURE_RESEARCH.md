@@ -127,27 +127,31 @@ export default function Home() {
 // components/map/MapDashboard.tsx — Client Component
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
-import maplibregl from 'maplibre-gl';
+import { useEffect, useRef } from 'react';
+import { Map, Popup, NavigationControl, AttributionControl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-
-import '@lib/map-setup'; // sets worker URL
+import { initMapLibre } from '@/lib/map/setup';
 
 export default function MapDashboard() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapRef = useRef<Map | null>(null);
 
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
 
-    mapRef.current = new maplibregl.Map({
+    initMapLibre(); // Configure worker URL BEFORE creating Map
+
+    mapRef.current = new Map({
       container: containerRef.current,
       style: { version: 8, sources: {}, layers: [] },
-      center: [101.5, 3.1], // Selangor center
+      center: [101.5, 3.1] as [number, number], // Selangor center
       zoom: 8.5,
       minZoom: 7,
       maxZoom: 18,
       attributionControl: false,
+      // Use a reliable glyph CDN — demotiles.maplibre.org returns 404
+      // for many font stacks.
+      glyphs: 'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
     });
 
     // Add layers after map loads
@@ -163,8 +167,9 @@ export default function MapDashboard() {
   }, []);
 
   return <div ref={containerRef} className="w-full h-full" />;
-}
 ```
+
+> **IMPORTANT**: MapLibre v6 is ESM-only. Use **named imports** (`import { Map } from 'maplibre-gl'`), NOT the default import (`import maplibregl from 'maplibre-gl'`). The default import silently resolves to `undefined` in ESM mode — the `new Map()` call will throw with no useful error message.
 
 ### 2.3 React 19 `useRef` + StrictMode
 
@@ -213,6 +218,126 @@ async function loadStats() {
 }
 ```
 
+### 2.5 ⚠️ Worker Setup (MapLibre v6 + Turbopack) — CRITICAL PITFALL
+
+**This is the #1 cause of a blank-white map canvas with zero console errors.** Documented here so you don't lose hours debugging it.
+
+#### The Problem
+
+MapLibre v6's web worker (`maplibre-gl-worker.mjs`) is an **ES module** that imports from a sibling shared module:
+
+```js
+// maplibre-gl-worker.mjs (line 5)
+import { An, Bt, C, ... } from "./maplibre-gl-shared.mjs";
+```
+
+In a Next.js 16 / Turbopack environment, three approaches to set the worker URL all fail:
+
+| Approach | What happens | Symptom |
+|----------|-------------|---------|
+| `new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).href` | Turbopack resolves the worker URL to a hashed `_next/static/media/...` path, but the **sibling `./maplibre-gl-shared.mjs` import** resolves relative to the hashed URL and 404s. | Blank canvas, zero errors. |
+| `setWorkerUrl('/maplibre-gl-worker.mjs')` (copy worker only to `public/`) | The worker loads from `public/`, but its `import "./maplibre-gl-shared.mjs"` resolves to `/maplibre-gl-shared.mjs` which doesn't exist in `public/`. Worker crashes on the import. | Blank canvas, zero errors. |
+| No `setWorkerUrl` call (auto-detect) | MapLibre's auto-detect checks `import.meta.url` — in a Turbopack bundle this doesn't start with `https?:`, so it returns empty string. Worker never loads. | Blank canvas, zero errors. |
+
+**Key insight**: The worker loads and begins executing, but the ESM import failure is **swallowed** — no error appears in the browser console. The map's `load` event still fires, but the worker can't process any GeoJSON data, so all sources render as empty.
+
+#### The Fix (Verified Working)
+
+Copy **both** files to `public/` and rewrite the worker's import to use an absolute path:
+
+```bash
+# Run once during project setup
+ cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs public/
+ cp node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs public/
+
+# Rewrite the relative import to absolute
+ sed -i 's|from"\./maplibre-gl-shared\.mjs"|from"/maplibre-gl-shared.mjs"|' \
+   public/maplibre-gl-worker.mjs
+```
+
+Then in your setup module:
+
+```typescript
+// lib/map/setup.ts
+import { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl } from 'maplibre-gl';
+
+export { Map, Popup, NavigationControl, AttributionControl };
+
+let initialized = false;
+
+/**
+ * Configure the MapLibre web worker URL.
+ *
+ * MapLibre v6's worker is ESM and imports from a sibling shared module.
+ * We place both files in public/ with corrected import paths so the
+ * worker can load as a module worker without bundler URL resolution issues.
+ */
+export function initMapLibre() {
+  if (initialized) return;
+  initialized = true;
+  setWorkerUrl('/maplibre-gl-worker.mjs');
+}
+```
+
+Call `initMapLibre()` **before** creating any `new Map()` instance.
+
+#### Alternative: Blob URL with Fetch (works without public/ files)
+
+If you prefer not to add files to `public/`, you can fetch both modules at runtime, rewrite the import, and create a blob URL:
+
+```typescript
+export async function initMapLibre(): Promise<void> {
+  if (initialized) return;
+  initialized = true;
+
+  const workerUrl = new URL(
+    'maplibre-gl/dist/maplibre-gl-worker.mjs',
+    import.meta.url
+  ).href;
+  const sharedUrl = new URL(
+    'maplibre-gl/dist/maplibre-gl-shared.mjs',
+    import.meta.url
+  ).href;
+
+  const [workerRes, sharedRes] = await Promise.all([
+    fetch(workerUrl),
+    fetch(sharedUrl),
+  ]);
+
+  let workerCode = await workerRes.text();
+  workerCode = workerCode.replace(
+    /from\s*"\.\/maplibre-gl-shared\.mjs"/,
+    `from "${sharedUrl}"`
+  );
+
+  const blob = new Blob([workerCode], { type: 'text/javascript' });
+  setWorkerUrl(URL.createObjectURL(blob));
+}
+```
+
+This is more elegant but adds ~200ms of startup latency (two extra fetches).
+
+#### Diagnostic Checklist
+
+If the map canvas is blank but the sidebar/controls render:
+
+1. Open DevTools → Network tab → filter for `worker` or `shared`
+2. Check if `maplibre-gl-worker.mjs` loaded (status 200)
+3. Check if `maplibre-gl-shared.mjs` loaded (status 200) — **this is the one that usually 404s**
+4. Open Console → look for `Uncaught SyntaxError: Cannot use import statement outside a module` — this confirms the worker loaded but couldn't resolve its ESM import
+5. Verify the worker was created with `{ type: 'module' }` — MapLibre v6 does this automatically for `.mjs` URLs
+
+#### Additional Pitfall: `promoteId` vs Top-Level `id`
+
+When using `setFeatureState()` for hover/selection, the feature must have a numeric ID. There are **two ways** to provide it, and they conflict:
+
+| Method | How it works | Gotcha |
+|--------|-------------|--------|
+| GeoJSON top-level `id` | `feature.id = 1` — standard GeoJSON spec field. MapLibre recognizes it automatically. | If you also set `promoteId`, it **overrides** the top-level ID. |
+| `promoteId` option | `map.addSource({ promoteId: 'my_field' })` — looks inside `feature.properties.my_field`. | If `my_field` doesn't exist in properties, the ID becomes `undefined`, breaking `setFeatureState` with: "The feature id parameter must be provided." |
+
+**Rule**: If your GeoJSON preprocessing sets `f['id'] = i + 1` (top-level), do **NOT** set `promoteId` on the source. If you store the ID in properties instead, then you must use `promoteId` and ensure the property exists.
+
 ---
 
 ## 3. Layer 1: Parliament Boundaries (22 Polygons)
@@ -247,8 +372,8 @@ sel = [f for f in data['features'] if f['properties']['state'] == 'Selangor']
 # Add voter-code-compatible ID for data-join
 for i, f in enumerate(sel):
     code = f['properties']['code_parlimen']  # "P.102"
-    f['properties']['voter_prefix'] = code.replace('P.', '')  # "102"
-    f['id'] = i + 1  # Integer ID for feature-state
+    f['properties']['voter_prefix'] = code.replace('P.', '')  # "092" (preserves zero-pad)
+    f['id'] = i + 1  # Integer ID for feature-state (top-level, NOT in properties)
 
 result = {
     "type": "FeatureCollection",
@@ -277,7 +402,10 @@ print(f"Wrote {len(sel)} Parliament features")
 map.addSource('parliament', {
   type: 'geojson',
   data: parliamentGeoJSON,
-  promoteId: 'id',  // Integer feature IDs for feature-state
+  // NOTE: Do NOT set promoteId here. Our GeoJSON uses standard
+  // top-level feature.id (f.id = 1..22). promoteId looks inside
+  // f.properties, which would override the valid top-level ID
+  // with undefined, breaking setFeatureState. (See §2.5 pitfall #3.)
 });
 
 // Fill layer (choropleth)
@@ -333,7 +461,7 @@ map.addLayer({
   layout: {
     'text-field': ['get', 'code_parlimen'],
     'text-size': 13,
-    'text-font': ['Open Sans Bold'],
+    'text-font': ['Open Sans Regular'],
     'text-anchor': 'center',
   },
   paint: {
@@ -452,9 +580,9 @@ with open('boundaries/research/dosm_dun.json') as f:
 sel = [f for f in data['features'] if f['properties']['state'] == 'Selangor']
 
 for i, f in enumerate(sel):
-    f['properties']['voter_prefix'] = f['properties']['code_dun'].replace('N.', '')  # "25"
+    f['properties']['voter_prefix'] = f['properties']['code_dun'].replace('N.', '')  # "01" (preserves zero-pad)
     f['properties']['parent_parl'] = f['properties']['code_parlimen']  # "P.102"
-    f['id'] = i + 1  # Integer ID for feature-state
+    f['id'] = i + 1  # Integer ID for feature-state (top-level, NOT in properties)
 
 result = {
     "type": "FeatureCollection",
@@ -746,7 +874,7 @@ print(f"Generated {len(features)} DM centroids")
 map.addSource('dm-centroids', {
   type: 'geojson',
   data: dmCentroidGeoJSON,
-  promoteId: 'dm_code_num',  // Must be integer!
+  // No promoteId — use top-level f.id (same as Parliament/DUN)
 });
 
 // Bubble layer — radius proportional to sqrt(voter_count)
@@ -1011,12 +1139,17 @@ interface VoterStats {
   parent_parl: string;      // DUN only
 }
 
-// File structure:
+// File structure (keys MUST be 3-digit zero-padded to match GeoJSON voter_prefix):
 // {
-//   "92": { "total_voters": 52847, "male_pct": 49.2, ... },
-//   "93": { "total_voters": 65970, ... },
+//   "092": { "code_parlimen": "P.092", "total_voters": 52847, ... },
+//   "093": { "code_parlimen": "P.093", "total_voters": 65970, ... },
+//   "100": { "code_parlimen": "P.100", "total_voters": 155756, ... },
 //   ...
 // }
+//
+// ⚠️  CRITICAL: code_parlimen "P.092" → voter_prefix "092" (3 digits).
+// Stats keys MUST match exactly. Unpadded keys ("92") cause the
+// data-join to silently miss 8 of 22 features → blank choropleth.
 ```
 
 ---
@@ -1161,8 +1294,8 @@ slgrvtrs-dashboard/
 │       ├── RacePie.tsx                # Donut chart
 │       └── AgeHistogram.tsx           # Bar chart
 ├── lib/
-│   ├── map-setup.ts                  # Worker URL, PMTiles protocol
-│   ├── join-stats.ts                 # Stats JSON → GeoJSON property merge
+│   ├── map-setup.ts                  # Worker URL config (ESM worker + shared module — see §2.5)
+│   ├── join-stats.ts                 # Stats JSON → GeoJSON property merge (keys must be zero-padded)
 │   ├── color-scales.ts               # Choropleth color functions + Jenks breaks
 │   └── code-mapping.ts               # Voter code ↔ GeoJSON code utilities
 ├── hooks/
@@ -1175,6 +1308,8 @@ slgrvtrs-dashboard/
 │   │   ├── selangor_dun.geojson            # 56 features, ~250 KB
 │   │   ├── selangor_outline.geojson       # 1 feature, ~20 KB
 │   │   └── dm_centroids.geojson           # 945 features, ~100 KB
+│   ├── maplibre-gl-worker.mjs           # ESM worker (rewritten import, see §2.5)
+│   ├── maplibre-gl-shared.mjs           # Worker shared module (sibling dep)
 │   └── stats/
 │       ├── parliament.json               # 22 records keyed by voter_prefix
 │       ├── dun.json                      # 56 records keyed by voter_prefix
@@ -1257,14 +1392,16 @@ The original `MAPLIBRE_PROJECT.md` recommended MECo for boundaries. After the do
 
 ### Phase 1: Foundation (Week 1-2)
 - [x] Research and validate boundary sources
-- [ ] Set up Next.js 16 project with MapLibre GL JS 6.3
-- [ ] Run Python aggregation scripts → `stats/parliament.json`, `stats/dun.json`, `stats/dm.json`
-- [ ] Filter ElectionData Parliament → `selangor_parliament.geojson` (22 features)
-- [ ] Filter DOSM DUN → `selangor_dun.geojson` (56 features)
+- [x] Set up Next.js 16 project with MapLibre GL JS 6.3
+- [x] **Configure ESM worker** — copy worker + shared module to `public/`, rewrite import (see §2.5)
+- [x] Run Python aggregation scripts → `stats/parliament.json`, `stats/dun.json`, `stats/dm.json`
+- [x] **Validate data-join key format** — stats keys must be 3-digit zero-padded ("092"-"113") to match GeoJSON `voter_prefix`
+- [x] Filter ElectionData Parliament → `selangor_parliament.geojson` (22 features, top-level `id`)
+- [ ] Filter DOSM DUN → `selangor_dun.geojson` (56 features, top-level `id`)
 - [ ] Filter JAKIM state → `selangor_outline.geojson` (1 feature)
-- [ ] Implement MapDashboard with Parliament choropleth (Layer 1)
-- [ ] Add click popup with stats, hover highlight via feature-state
-- [ ] Add sidebar with metric selector (total / gender / race / age)
+- [x] Implement MapDashboard with Parliament choropleth (Layer 1)
+- [x] Add click popup with stats, hover highlight via feature-state (no `promoteId` — see §2.5)
+- [x] Add sidebar with metric selector (total / gender / race / age)
 
 ### Phase 2: DUN Drill-Down (Week 3)
 - [ ] Add DUN boundary layer (Layer 2) with zoom-based visibility
