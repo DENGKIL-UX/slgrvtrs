@@ -6,22 +6,14 @@ export { Map, Popup, NavigationControl, AttributionControl, setWorkerUrl };
 let initialized = false;
 
 /**
- * Configure the MapLibre web worker URL for bundler compatibility.
- * Call once before creating any Map instance.
+ * Configure the MapLibre web worker URL.
+ *
+ * MapLibre v6's worker is ESM and imports from a sibling shared module.
+ * We place both files in public/ with corrected import paths so the
+ * worker can load as a module worker without bundler URL resolution issues.
  */
 export function initMapLibre() {
   if (initialized) return;
   initialized = true;
-
-  try {
-    setWorkerUrl(
-      new URL(
-        "maplibre-gl/dist/maplibre-gl-worker.mjs",
-        import.meta.url
-      ).href
-    );
-  } catch {
-    // Worker URL resolution may fail in some environments;
-    // MapLibre will fall back to its default worker loading.
-  }
+  setWorkerUrl("/maplibre-gl-worker.mjs");
 }

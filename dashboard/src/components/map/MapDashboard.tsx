@@ -84,7 +84,7 @@ export default function MapDashboard() {
                 paint: { 'background-color': '#f0f4f8' },
               },
             ],
-            glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+            glyphs: 'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
           },
           center: SELANGOR_CENTER,
           zoom: DEFAULT_ZOOM,
@@ -154,7 +154,7 @@ export default function MapDashboard() {
             layout: {
               'text-field': ['get', 'code_parlimen'],
               'text-size': 12,
-              'text-font': ['Open Sans Bold'],
+              'text-font': ['Open Sans Regular'],
               'text-anchor': 'center',
               'text-allow-overlap': false,
               'text-ignore-placement': false,
