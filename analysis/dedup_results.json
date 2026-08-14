@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "total_records": 3971650,
+    "elapsed_seconds": 73.8,
+    "analysis_date": "2026-08-14 07:55:11"
+  },
+  "voter_id_dedup": {
+    "unique_voter_ids": 3971650,
+    "duplicate_voter_ids": 0,
+    "duplicate_records": 0,
+    "extra_records": 0,
+    "duplication_rate_pct": 0.0,
+    "duplication_frequency_distribution": {},
+    "top_20_most_duplicated": []
+  },
+  "voter_code_dedup": {
+    "unique_voter_codes": 3734380,
+    "duplicate_voter_codes": 163373,
+    "duplicate_records": 400643,
+    "extra_records": 237270,
+    "duplication_rate_pct": 5.9741,
+    "duplication_frequency_distribution": {
+      "2": 122864,
+      "3": 24546,
+      "4": 8174,
+      "5": 3605,
+      "6": 1812,
+      "7": 985,
+      "8": 617,
+      "9": 324,
+      "10": 225,
+      "11": 101,
+      "12": 53,
+      "13": 32,
+      "14": 15,
+      "15": 10,
+      "16": 7,
+      "17": 2,
+      "18": 1
+    },
+    "top_20_most_duplicated": [
+      [
+        "DIN135MOH105",
+        18
+      ],
+      [
+        "DIN029MOH105",
+        17
+      ],
+      [
+        "DIN987MUH105",
+        17
+      ],
+      [
+        "DIN047MOH105",
+        16
+      ],
+      [
+        "DIN317MOH105",
+        16
+      ],
+      [
+        "DIN219MUH105",
+        16
+      ],
+      [
+        "DIN659MOH105",
+        16
+      ],
+      [
+        "DIN283MUH105",
+        16
+      ],
+      [
+        "DIN207MOH105",
+        16
+      ],
+      [
+        "DIN715MUH105",
+        16
+      ],
+      [
+        "DIN125MUH145",
+        15
+      ],
+      [
+        "DIN605MOH105",
+        15
+      ],
+      [
+        "MAN587MOH105",
+        15
+      ],
+      [
+        "MAN019MOH105",
+        15
+      ],
+      [
+        "DIN422NUR105",
+        15
+      ],
+      [
+        "DIN083MUH145",
+        15
+      ],
+      [
+        "DIN395MUH105",
+        15
+      ],
+      [
+        "DIN221MUH105",
+        15
+      ],
+      [
+        "DIN521MOH105",
+        15
+      ],
+      [
+        "DIN375MOH105",
+        15
+      ]
+    ]
+  }
+}
