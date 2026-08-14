@@ -1,53 +1,21 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import {
-  Map,
-  Popup,
-  NavigationControl,
-  AttributionControl,
-} from '@/lib/map/setup';
+import { Map, Popup, NavigationControl, AttributionControl } from '@/lib/map/setup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMapLibre } from '@/lib/map/setup';
-import {
-  joinStatsToGeoJSON,
-  type ParlStatsMap,
-  type DunStatsMap,
-} from '@/lib/map/join-stats';
-import {
-  buildColorExpression,
-  getScaleById,
-  getDunScaleById,
-  PARL_COLOR_SCALES,
-  DUN_COLOR_SCALES,
-  type ColorScale,
-} from '@/lib/map/color-scales';
-import Legend from '@/components/map/Legend';
+import { joinStatsToGeoJSON, type StatsMap, type ParliamentStats } from '@/lib/map/join-stats';
+import { buildColorExpression, getScaleById, COLOR_SCALES, type ColorScale } from '@/lib/map/color-scales';
 
 // ============================================================
 // Types
 // ============================================================
 
-interface ParlPopupData {
-  code_parlimen: string;
-  name: string;
-  total_voters: number;
-  male: number;
-  female: number;
-  male_pct: number;
-  female_pct: number;
-  malay_pct: number;
-  chinese_pct: number;
-  indian_pct: number;
-  other_pct: number;
-  age_mean: number;
-  age_median: number;
-  contact_pct: number;
-  child_dun_count: number;
+interface PopupData extends ParliamentStats {
   voter_prefix: string;
 }
 
-interface DunPopupData {
+interface DUNStats {
   code_dun: string;
   name: string;
   code_parlimen: string;
@@ -65,7 +33,33 @@ interface DunPopupData {
   contact_pct: number;
   dm_count: number;
   locality_count: number;
+}
+
+type DUNStatsMap = Record<string, DUNStats>;
+
+interface DUNProperties {
+  state: string;
+  parlimen: string;
+  dun: string;
+  code_parlimen: string;
+  code_dun: string;
   voter_prefix: string;
+  parent_parl: string;
+  // Joined stats from dun.json
+  total_voters?: number;
+  male?: number;
+  female?: number;
+  male_pct?: number;
+  female_pct?: number;
+  malay_pct?: number;
+  chinese_pct?: number;
+  indian_pct?: number;
+  other_pct?: number;
+  age_mean?: number;
+  age_median?: number;
+  contact_pct?: number;
+  dm_count?: number;
+  locality_count?: number;
 }
 
 // ============================================================
@@ -85,18 +79,14 @@ export default function MapDashboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const popupRef = useRef<Popup | null>(null);
-  const hoveredParlIdRef = useRef<number | null>(null);
-  const hoveredDunIdRef = useRef<number | null>(null);
+  const hoveredIdRef = useRef<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeMetric, setActiveMetric] = useState('total_voters');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showParl, setShowParl] = useState(true);
-  const [showDun, setShowDun] = useState(true);
-  const [drilledParl, setDrilledParl] = useState<string | null>(null);
 
-  // Keep refs to latest state for map callbacks
+  // Keep a ref to activeMetric so the map callback always reads the latest
   const activeMetricRef = useRef(activeMetric);
   useEffect(() => {
     activeMetricRef.current = activeMetric;
@@ -112,25 +102,30 @@ export default function MapDashboard() {
       try {
         initMapLibre();
 
-        const [parlGeoRes, parlStatsRes, dunGeoRes, dunStatsRes] =
-          await Promise.all([
-            fetch('/boundaries/selangor_parliament.geojson'),
-            fetch('/stats/parliament.json'),
-            fetch('/boundaries/selangor_dun.geojson'),
-            fetch('/stats/dun.json'),
-          ]);
+        // Load all boundary data in parallel
+        const [parlRes, statsRes, dunRes, dunStatsRes, outlineRes] = await Promise.all([
+          fetch('/boundaries/selangor_parliament.geojson'),
+          fetch('/stats/parliament.json'),
+          fetch('/boundaries/selangor_dun.geojson'),
+          fetch('/stats/dun.json'),
+          fetch('/boundaries/selangor_outline.geojson'),
+        ]);
 
         if (cancelled) return;
 
-        const [parlGeo, parlStats, dunGeo, dunStats] = await Promise.all([
-          parlGeoRes.json(),
-          parlStatsRes.json() as Promise<ParlStatsMap>,
-          dunGeoRes.json(),
-          dunStatsRes.json() as Promise<DunStatsMap>,
+        const [parlGeojson, stats, dunGeojson, dunStats, outlineGeojson] = await Promise.all([
+          parlRes.json(),
+          statsRes.json() as Promise<StatsMap>,
+          dunRes.json(),
+          dunStatsRes.json() as Promise<DUNStatsMap>,
+          outlineRes.json(),
         ]);
 
-        const parlJoined = joinStatsToGeoJSON(parlGeo, parlStats);
-        const dunJoined = joinStatsToGeoJSON(dunGeo, dunStats);
+        // Join stats into parliament GeoJSON properties
+        const joined = joinStatsToGeoJSON(parlGeojson, stats);
+
+        // Join DUN stats into DUN GeoJSON properties
+        const dunJoined = joinStatsToGeoJSON(dunGeojson, dunStats as unknown as StatsMap);
 
         if (cancelled) return;
 
@@ -148,8 +143,7 @@ export default function MapDashboard() {
                 paint: { 'background-color': '#f0f4f8' },
               },
             ],
-            glyphs:
-              'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
+            glyphs: 'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
           },
           center: SELANGOR_CENTER,
           zoom: DEFAULT_ZOOM,
@@ -160,28 +154,70 @@ export default function MapDashboard() {
 
         map.addControl(
           new AttributionControl({ compact: true }),
-          'bottom-right',
+          'bottom-right'
         );
         map.addControl(new NavigationControl(), 'top-right');
+
+        // ---- DUN hover state ref ----
+        let hoveredDunId: number | null = null;
 
         map.on('load', () => {
           if (cancelled) return;
 
-          // ==================== PARLIAMENT SOURCE ====================
-          map.addSource('parliament', {
+          // ==== SOURCES ====
+
+          // State outline (JAKIM) — always behind everything
+          map.addSource('outline', {
             type: 'geojson',
-            data: parlJoined,
+            data: outlineGeojson,
           });
 
-          // Parliament fill
-          const pScale = getScaleById(activeMetricRef.current);
+          // Parliament (with joined stats)
+          map.addSource('parliament', {
+            type: 'geojson',
+            data: joined,
+          });
+
+          // DUN boundaries (with joined stats)
+          map.addSource('dun', {
+            type: 'geojson',
+            data: dunJoined,
+          });
+
+          // ==== STATE OUTLINE LAYER ====
+          map.addLayer({
+            id: 'outline-fill',
+            type: 'fill',
+            source: 'outline',
+            paint: {
+              'fill-color': '#e2e8f0',
+              'fill-opacity': 0.35,
+            },
+          });
+          map.addLayer({
+            id: 'outline-border',
+            type: 'line',
+            source: 'outline',
+            paint: {
+              'line-color': '#475569',
+              'line-width': 2.5,
+              'line-opacity': 0.9,
+            },
+          });
+
+          // ---- Initial scale ----
+          const scale = getScaleById('total_voters');
+          const colorExpr = buildColorExpression(scale.property, scale.stops);
+
+          // ==== PARLIAMENT LAYERS ====
+          // Fill: visible at state-level zoom (7–9)
           map.addLayer({
             id: 'parliament-fill',
             type: 'fill',
             source: 'parliament',
             maxzoom: 9,
             paint: {
-              'fill-color': buildColorExpression(pScale.property, pScale.stops),
+              'fill-color': colorExpr,
               'fill-opacity': [
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
@@ -191,7 +227,7 @@ export default function MapDashboard() {
             },
           });
 
-          // Parliament border (always visible as outline)
+          // Border: always visible as outline reference
           map.addLayer({
             id: 'parliament-border',
             type: 'line',
@@ -202,18 +238,13 @@ export default function MapDashboard() {
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
                 2.5,
-                0.8,
+                1,
               ],
-              'line-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                0.9,
-                0.35,
-              ],
+              'line-opacity': 0.8,
             },
           });
 
-          // Parliament label
+          // Label: only at state-level zoom
           map.addLayer({
             id: 'parliament-label',
             type: 'symbol',
@@ -234,38 +265,32 @@ export default function MapDashboard() {
             },
           });
 
-          // ==================== DUN SOURCE ====================
-          map.addSource('dun', {
-            type: 'geojson',
-            data: dunJoined,
-          });
-
-          // DUN fill
-          const dScale = getDunScaleById(activeMetricRef.current);
+          // ==== DUN LAYERS ====
+          // Fill: appears when zoomed past state level
           map.addLayer({
             id: 'dun-fill',
             type: 'fill',
             source: 'dun',
-            minzoom: 8,
+            minzoom: 8.5,
             paint: {
-              'fill-color': buildColorExpression(dScale.property, dScale.stops),
+              'fill-color': '#b2dfdb',
               'fill-opacity': [
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
-                0.88,
-                0.65,
+                0.75,
+                0.5,
               ],
             },
           });
 
-          // DUN border
+          // Border
           map.addLayer({
             id: 'dun-border',
             type: 'line',
             source: 'dun',
-            minzoom: 8,
+            minzoom: 8.5,
             paint: {
-              'line-color': '#1e293b',
+              'line-color': '#00695c',
               'line-width': [
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
@@ -276,28 +301,28 @@ export default function MapDashboard() {
             },
           });
 
-          // DUN label
+          // Label: visible from zoom 9+ to avoid clutter
           map.addLayer({
             id: 'dun-label',
             type: 'symbol',
             source: 'dun',
-            minzoom: 9.5,
+            minzoom: 9,
             layout: {
               'text-field': ['get', 'code_dun'],
-              'text-size': 11,
+              'text-size': 10,
               'text-font': ['Open Sans Regular'],
               'text-anchor': 'center',
-              'text-allow-overlap': false,
-              'text-ignore-placement': false,
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
             },
             paint: {
-              'text-color': '#0f172a',
+              'text-color': '#004d40',
               'text-halo-color': 'rgba(255,255,255,0.9)',
-              'text-halo-width': 1.5,
+              'text-halo-width': 1.2,
             },
           });
 
-          // ==================== POPUP ====================
+          // ==== POPUP (shared) ====
           const popup = new Popup({
             closeButton: true,
             closeOnClick: false,
@@ -308,70 +333,27 @@ export default function MapDashboard() {
           });
           popupRef.current = popup;
 
-          // ---- Parliament click → drill-down to DUNs ----
+          // ---- Parliament click → popup ----
           map.on('click', 'parliament-fill', (e) => {
             if (!e.features?.length) return;
-            const props = e.features[0].properties as unknown as ParlPopupData;
-            const codeParl = props.code_parlimen;
-
-            // Filter DUN layers to this parliament
-            map.setFilter('dun-fill', [
-              '==', ['get', 'parent_parl'], codeParl,
-            ]);
-            map.setFilter('dun-border', [
-              '==', ['get', 'parent_parl'], codeParl,
-            ]);
-            map.setFilter('dun-label', [
-              '==', ['get', 'parent_parl'], codeParl,
-            ]);
-
-            setDrilledParl(codeParl);
-
-            // Fly to parliament bounding box
-            const feat = e.features[0];
-            if (feat.geometry && feat.geometry.type === 'Polygon') {
-              const coords = feat.geometry.coordinates[0];
-              let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
-              for (const [lng, lat] of coords) {
-                if (lng < minLng) minLng = lng;
-                if (lng > maxLng) maxLng = lng;
-                if (lat < minLat) minLat = lat;
-                if (lat > maxLat) maxLat = lat;
-              }
-              map.fitBounds(
-                [[minLng, minLat], [maxLng, maxLat]],
-                { padding: 60, duration: 800 },
-              );
-            }
-
-            // Show parliament popup
+            const props = e.features[0].properties as unknown as PopupData;
             popup
               .setLngLat(e.lngLat)
-              .setHTML(buildParlPopupHTML(props))
+              .setHTML(buildParliamentPopupHTML(props))
               .addTo(map);
           });
 
-          // ---- DUN click → show DUN popup ----
-          map.on('click', 'dun-fill', (e) => {
-            if (!e.features?.length) return;
-            const props = e.features[0].properties as unknown as DunPopupData;
-            popup
-              .setLngLat(e.lngLat)
-              .setHTML(buildDunPopupHTML(props))
-              .addTo(map);
-          });
-
-          // ---- Parliament hover ----
+          // ---- Parliament hover highlight ----
           map.on('mousemove', 'parliament-fill', (e) => {
             if (!e.features?.length) return;
             const fid = e.features[0].id as number;
-            if (hoveredParlIdRef.current !== null && hoveredParlIdRef.current !== fid) {
+            if (hoveredIdRef.current !== null && hoveredIdRef.current !== fid) {
               map.setFeatureState(
-                { source: 'parliament', id: hoveredParlIdRef.current },
+                { source: 'parliament', id: hoveredIdRef.current },
                 { hover: false },
               );
             }
-            hoveredParlIdRef.current = fid;
+            hoveredIdRef.current = fid;
             map.setFeatureState(
               { source: 'parliament', id: fid },
               { hover: true },
@@ -380,27 +362,37 @@ export default function MapDashboard() {
           });
 
           map.on('mouseleave', 'parliament-fill', () => {
-            if (hoveredParlIdRef.current !== null) {
+            if (hoveredIdRef.current !== null) {
               map.setFeatureState(
-                { source: 'parliament', id: hoveredParlIdRef.current },
+                { source: 'parliament', id: hoveredIdRef.current },
                 { hover: false },
               );
-              hoveredParlIdRef.current = null;
+              hoveredIdRef.current = null;
             }
             map.getCanvas().style.cursor = '';
           });
 
-          // ---- DUN hover ----
+          // ---- DUN click → popup ----
+          map.on('click', 'dun-fill', (e) => {
+            if (!e.features?.length) return;
+            const props = e.features[0].properties as unknown as DUNProperties;
+            popup
+              .setLngLat(e.lngLat)
+              .setHTML(buildDUNPopupHTML(props))
+              .addTo(map);
+          });
+
+          // ---- DUN hover highlight ----
           map.on('mousemove', 'dun-fill', (e) => {
             if (!e.features?.length) return;
             const fid = e.features[0].id as number;
-            if (hoveredDunIdRef.current !== null && hoveredDunIdRef.current !== fid) {
+            if (hoveredDunId !== null && hoveredDunId !== fid) {
               map.setFeatureState(
-                { source: 'dun', id: hoveredDunIdRef.current },
+                { source: 'dun', id: hoveredDunId },
                 { hover: false },
               );
             }
-            hoveredDunIdRef.current = fid;
+            hoveredDunId = fid;
             map.setFeatureState(
               { source: 'dun', id: fid },
               { hover: true },
@@ -409,24 +401,14 @@ export default function MapDashboard() {
           });
 
           map.on('mouseleave', 'dun-fill', () => {
-            if (hoveredDunIdRef.current !== null) {
+            if (hoveredDunId !== null) {
               map.setFeatureState(
-                { source: 'dun', id: hoveredDunIdRef.current },
+                { source: 'dun', id: hoveredDunId },
                 { hover: false },
               );
-              hoveredDunIdRef.current = null;
+              hoveredDunId = null;
             }
             map.getCanvas().style.cursor = '';
-          });
-
-          // ---- Reset DUN filter when zooming out ----
-          map.on('zoomend', () => {
-            if (map.getZoom() < 8.5) {
-              map.setFilter('dun-fill', null);
-              map.setFilter('dun-border', null);
-              map.setFilter('dun-label', null);
-              setDrilledParl(null);
-            }
           });
 
           setLoading(false);
@@ -435,9 +417,7 @@ export default function MapDashboard() {
         mapRef.current = map;
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : 'Failed to load map data',
-          );
+          setError(err instanceof Error ? err.message : 'Failed to load map data');
           setLoading(false);
         }
       }
@@ -454,83 +434,22 @@ export default function MapDashboard() {
   }, []);
 
   // ------- Update choropleth when metric changes -------
-  const updateMetric = useCallback((metricId: string) => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const pScale = getScaleById(metricId);
-    map.setPaintProperty(
-      'parliament-fill',
-      'fill-color',
-      buildColorExpression(pScale.property, pScale.stops),
-    );
-
-    const dScale = getDunScaleById(metricId);
-    map.setPaintProperty(
-      'dun-fill',
-      'fill-color',
-      buildColorExpression(dScale.property, dScale.stops),
-    );
-  }, []);
+  const updateMetric = useCallback(
+    (metricId: string) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const scale = getScaleById(metricId);
+      const colorExpr = buildColorExpression(scale.property, scale.stops);
+      map.setPaintProperty('parliament-fill', 'fill-color', colorExpr);
+    },
+    [],
+  );
 
   useEffect(() => {
     updateMetric(activeMetric);
   }, [activeMetric, updateMetric]);
 
-  // ------- Layer visibility -------
-  const updateParlVisibility = useCallback(
-    (visible: boolean) => {
-      const map = mapRef.current;
-      if (!map) return;
-      const op = visible ? 'visible' : 'none';
-      map.setLayoutProperty('parliament-fill', 'visibility', op);
-      map.setLayoutProperty('parliament-border', 'visibility', op);
-      map.setLayoutProperty('parliament-label', 'visibility', op);
-    },
-    [],
-  );
-
-  const updateDunVisibility = useCallback(
-    (visible: boolean) => {
-      const map = mapRef.current;
-      if (!map) return;
-      const op = visible ? 'visible' : 'none';
-      map.setLayoutProperty('dun-fill', 'visibility', op);
-      map.setLayoutProperty('dun-border', 'visibility', op);
-      map.setLayoutProperty('dun-label', 'visibility', op);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    updateParlVisibility(showParl);
-  }, [showParl, updateParlVisibility]);
-
-  useEffect(() => {
-    updateDunVisibility(showDun);
-  }, [showDun, updateDunVisibility]);
-
-  // ------- Reset drill-down -------
-  const resetDrill = useCallback(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    map.setFilter('dun-fill', null);
-    map.setFilter('dun-border', null);
-    map.setFilter('dun-label', null);
-    setDrilledParl(null);
-    popupRef.current?.remove();
-    map.flyTo({ center: SELANGOR_CENTER, zoom: DEFAULT_ZOOM, duration: 800 });
-  }, []);
-
-  // Current zoom level
-  const zoom = mapRef.current?.getZoom() ?? DEFAULT_ZOOM;
-  const isDunLevel = zoom >= 8.5;
-  const currentScale = isDunLevel
-    ? getDunScaleById(activeMetric)
-    : getScaleById(activeMetric);
-
-  // Get active scale options based on zoom
-  const scaleOptions = isDunLevel ? DUN_COLOR_SCALES : PARL_COLOR_SCALES;
+  const currentScale = getScaleById(activeMetric);
 
   return (
     <div className="relative w-full h-screen flex overflow-hidden bg-slate-100">
@@ -550,37 +469,6 @@ export default function MapDashboard() {
           </p>
         </div>
 
-        {/* Layer Toggles */}
-        <div className="p-4 border-b border-slate-200 flex-shrink-0">
-          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-            Layers
-          </label>
-          <div className="mt-2 space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showParl}
-                onChange={(e) => setShowParl(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span className="text-sm text-slate-700">
-                Parliament (22 seats)
-              </span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showDun}
-                onChange={(e) => setShowDun(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span className="text-sm text-slate-700">
-                DUN (56 seats)
-              </span>
-            </label>
-          </div>
-        </div>
-
         {/* Metric Selector */}
         <div className="p-4 border-b border-slate-200 flex-shrink-0">
           <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -591,7 +479,7 @@ export default function MapDashboard() {
             onChange={(e) => setActiveMetric(e.target.value)}
             className="mt-1.5 w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           >
-            {scaleOptions.map((s) => (
+            {COLOR_SCALES.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>
@@ -600,29 +488,24 @@ export default function MapDashboard() {
         </div>
 
         {/* Legend */}
-        <div className="p-4 flex-shrink-0 overflow-y-auto">
-          <Legend scale={currentScale} />
-        </div>
-
-        {/* Drill-down indicator */}
-        {drilledParl && (
-          <div className="mx-4 mb-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-md flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-emerald-800">
-                Filtered: {drilledParl}
-              </span>
-              <button
-                onClick={resetDrill}
-                className="text-xs text-emerald-700 hover:text-emerald-900 font-medium underline"
-              >
-                Reset
-              </button>
-            </div>
-            <p className="text-[10px] text-emerald-600 mt-1">
-              Showing DUNs within this Parliament. Click &quot;Reset&quot; or zoom out to show all.
-            </p>
+        <div className="p-4 flex-shrink-0">
+          <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+            {currentScale.label}
+          </h3>
+          <div className="space-y-1">
+            {currentScale.stops.map(([value, color], i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span
+                  className="w-5 h-3 rounded-sm flex-shrink-0 border border-slate-200"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-xs text-slate-700">
+                  {currentScale.legendLabels[i]}
+                </span>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
         {/* Info */}
         <div className="mt-auto p-4 border-t border-slate-200 flex-shrink-0">
@@ -631,7 +514,7 @@ export default function MapDashboard() {
             ElectionData.MY. Not official SPR boundaries.
           </p>
           <p className="text-[10px] text-slate-400 mt-1">
-            Phase 2 — Parliament + DUN Layers
+            Phase 2 — Parliament (22) + DUN (56) + Voter Statistics
           </p>
         </div>
       </aside>
@@ -698,17 +581,17 @@ export default function MapDashboard() {
 }
 
 // ============================================================
-// Popup HTML builders
+// Popup HTML builder
 // ============================================================
 
-function buildParlPopupHTML(p: ParlPopupData): string {
+function buildParliamentPopupHTML(p: PopupData): string {
   return `
     <div style="font-family: system-ui, sans-serif;">
       <div style="font-weight:700; font-size:15px; color:#0f172a;">
         ${p.code_parlimen} — ${p.name}
       </div>
       <div style="font-size:11px; color:#64748b; margin-bottom:8px;">
-        Parliamentary Constituency · ${p.child_dun_count} DUNs
+        Parliamentary Constituency
       </div>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
@@ -757,37 +640,57 @@ function buildParlPopupHTML(p: ParlPopupData): string {
         <tr>
           <td style="padding:2px 8px 2px 0;"><strong>Contact %</strong></td>
           <td style="text-align:right;">${p.contact_pct}%</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 8px 2px 0;"><strong>DUNs</strong></td>
+          <td style="text-align:right;">${p.child_dun_count}</td>
         </tr>
       </table>
     </div>
   `;
 }
 
-function buildDunPopupHTML(p: DunPopupData): string {
+function buildDUNPopupHTML(p: DUNProperties): string {
+  const hasStats = p.total_voters !== undefined;
+  const dunName = p.dun.replace(/^N\.\d+\s+/, '');
+  const parlName = p.parlimen.replace(/^P\.\d+\s+/, '');
+
   return `
     <div style="font-family: system-ui, sans-serif;">
-      <div style="font-weight:700; font-size:14px; color:#0f172a;">
-        ${p.code_dun} — ${p.name}
+      <div style="font-weight:700; font-size:14px; color:#004d40;">
+        ${p.code_dun} — ${dunName}
       </div>
-      <div style="font-size:11px; color:#64748b; margin-bottom:8px;">
-        ${p.code_parlimen} · ${p.dm_count} DMs · ${p.locality_count} localities
+      <div style="font-size:11px; color:#64748b; margin-bottom:6px;">
+        State Legislative Assembly
       </div>
-      <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
+      <table style="width:100%;font-size:12px;color:#334155;">
+        <tr>
+          <td style="padding:2px 8px 2px 0;"><strong>Parent Parliament</strong></td>
+          <td style="text-align:right;">${p.parent_parl} ${parlName}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 8px 2px 0;"><strong>DUN Code</strong></td>
+          <td style="text-align:right;">${p.code_dun}</td>
+        </tr>
+      </table>
+      ${hasStats ? `
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
         <tr>
           <td style="padding:2px 8px 2px 0;"><strong>Total Voters</strong></td>
-          <td style="text-align:right;font-weight:600;">${p.total_voters.toLocaleString()}</td>
+          <td style="text-align:right;font-weight:600;">${p.total_voters!.toLocaleString()}</td>
         </tr>
         <tr>
           <td style="padding:2px 8px 2px 0;"><strong>Male</strong></td>
-          <td style="text-align:right;">${p.male_pct}% (${p.male.toLocaleString()})</td>
+          <td style="text-align:right;">${p.male_pct}% (${p.male!.toLocaleString()})</td>
         </tr>
         <tr>
           <td style="padding:2px 8px 2px 0;"><strong>Female</strong></td>
-          <td style="text-align:right;">${p.female_pct}% (${p.female.toLocaleString()})</td>
+          <td style="text-align:right;">${p.female_pct}% (${p.female!.toLocaleString()})</td>
         </tr>
       </table>
-      <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
         <tr>
           <td style="padding:2px 8px 2px 0;"><strong>Malay</strong></td>
@@ -806,7 +709,7 @@ function buildDunPopupHTML(p: DunPopupData): string {
           <td style="text-align:right;">${p.other_pct}%</td>
         </tr>
       </table>
-      <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
         <tr>
           <td style="padding:2px 8px 2px 0;"><strong>Mean Age</strong></td>
@@ -820,7 +723,20 @@ function buildDunPopupHTML(p: DunPopupData): string {
           <td style="padding:2px 8px 2px 0;"><strong>Contact %</strong></td>
           <td style="text-align:right;">${p.contact_pct}%</td>
         </tr>
+        <tr>
+          <td style="padding:2px 8px 2px 0;"><strong>DMs</strong></td>
+          <td style="text-align:right;">${p.dm_count}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 8px 2px 0;"><strong>Localities</strong></td>
+          <td style="text-align:right;">${p.locality_count}</td>
+        </tr>
       </table>
+      ` : `
+      <div style="font-size:10px;color:#94a3b8;margin-top:8px;">
+        No voter statistics available for this seat.
+      </div>
+      `}
     </div>
   `;
 }
