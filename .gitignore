@@ -30,3 +30,7 @@ dashboard/tsconfig.tsbuildinfo
 dashboard/.dev.vars
 dashboard/.wrangler/
 dashboard/.open-next/
+node_modules/
+.dev.vars
+.open-next/
+.wrangler/
