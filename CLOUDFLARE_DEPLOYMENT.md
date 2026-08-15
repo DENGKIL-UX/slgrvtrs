@@ -453,6 +453,16 @@ Route (app)
 - Subsequent deploys are faster (~30s vs ~2min for cold build)
 - Cache is invalidated automatically when `package-lock.json` or source files change
 
+### 10.9 DM Bubble Layer Filter Bugs (Fixed Post-Deploy)
+
+Two bugs were found in the DM (Layer 3) filter logic after initial Phase 3 deployment. Both were **frontend-only fixes** (no CF config changes):
+
+1. **`setFilter()` hiding DMs**: Race/Gender filters used `map.setFilter()` which hid bubbles with zero count for the selected demographic (35 DMs vanished). Fixed by updating `circle-radius` paint property instead — all 945 bubbles stay visible and resize.
+
+2. **`DM_MAX_VOTERS` clamping**: Was 9,500 (sub-count max) but `total_voters` reaches 26,156. This clamped 59 DMs at max radius, making filter toggles visually indistinguishable (e.g., Bandar Puncak Alam: All=20px vs Male=19.82px). Fixed by raising to **27,000**.
+
+Both fixes deployed via standard CF dashboard auto-deploy (push to `main`). No infrastructure changes required.
+
 ---
 
 ## 11. Cost Projection

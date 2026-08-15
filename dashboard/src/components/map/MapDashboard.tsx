@@ -130,7 +130,7 @@ const DM_LAYER_IDS = ['dm-bubble', 'dm-bubble-border'];
 const DM_MIN_RADIUS = 2;
 const DM_MAX_RADIUS = 20;
 const DM_MIN_VOTERS = 0;
-const DM_MAX_VOTERS = 9500;
+const DM_MAX_VOTERS = 27000;
 
 // ============================================================
 // Component
@@ -612,7 +612,7 @@ export default function MapDashboard() {
             map.on('click', 'dm-bubble', (e) => {
               if (!e.features?.length) return;
               const props = e.features[0].properties as unknown as DMProperties;
-              popup.setLngLat(e.lngLat).setHTML(buildDMPopupHTML(props)).addTo(map);
+              popup.setLngLat(e.lngLat).setHTML(buildDMPopupHTML(props, genderFilterRef.current, raceFilterRef.current)).addTo(map);
             });
           }
 
@@ -891,7 +891,7 @@ function buildDUNPopupHTML(p: DUNProperties): string {
     </div>`;
 }
 
-function buildDMPopupHTML(p: DMProperties): string {
+function buildDMPopupHTML(p: DMProperties, gf: string = "all", rf: string = "all"): string {
   const dmName = p.dm_code.replace(/^[\d.]+\s*/, '');
   const dunName = p.dun_code.replace(/^[\d.]+\s*/, '');
 
@@ -904,6 +904,22 @@ function buildDMPopupHTML(p: DMProperties): string {
         Daerah Mengundi · ${p.dun_code} ${dunName}
       </div>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
+      ${(() => {
+        if (gf === 'all' && rf === 'all') return '';
+        let fc = 0, fl = '';
+        if (gf === 'all') {
+          fc = (p as any)['male_' + rf] + (p as any)['female_' + rf];
+          fl = rf.charAt(0).toUpperCase() + rf.slice(1);
+        } else if (rf === 'all') {
+          fc = (p as any)[gf + '_malay'] + (p as any)[gf + '_chinese'] + (p as any)[gf + '_indian'] + (p as any)[gf + '_other'];
+          fl = gf.charAt(0).toUpperCase() + gf.slice(1);
+        } else {
+          fc = (p as any)[gf + '_' + rf];
+          fl = gf.charAt(0).toUpperCase() + gf.slice(1) + ' ' + rf.charAt(0).toUpperCase() + rf.slice(1);
+        }
+        const pct = p.total_voters > 0 ? (fc / p.total_voters * 100).toFixed(1) : '0.0';
+        return '<div style="background:#fef2f2;border-radius:4px;padding:4px 8px;margin-bottom:6px;font-size:11px;color:#9f1239;"><strong>Active Filter:</strong> ' + fc.toLocaleString() + ' ' + fl + ' voters (' + pct + '%)</div>';
+      })()}
       <table style="width:100%;font-size:12px;color:#334155;">
         <tr><td style="padding:2px 8px 2px 0;"><strong>Total Voters</strong></td><td style="text-align:right;font-weight:600;">${p.total_voters.toLocaleString()}</td></tr>
         <tr><td style="padding:2px 8px 2px 0;"><strong>Male</strong></td><td style="text-align:right;">${p.male_pct}% (${p.male.toLocaleString()})</td></tr>

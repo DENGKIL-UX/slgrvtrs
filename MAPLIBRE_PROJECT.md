@@ -181,12 +181,12 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 | Type | `circle` |
 | Source | `public/boundaries/dm_centroids.geojson` |
 | Features | 945 points (all within DUN boundaries) |
-| Size | `interpolate` on `total_voters`, 3px (2K voters) → 20px (15K voters) |
+| Size | `interpolate` on active filter count, 3px (2K) → 20px (27K) — `DM_MAX_VOTERS = 27,000` |
 | Color | Red sequential (`#fbb4ae` → `#b40426`) by `total_voters` |
-| Interaction | Hover → tooltip (name + count), click → detailed popup (14 fields) |
+| Interaction | Hover → tooltip (name + count + filtered count/label), click → detailed popup (14 fields + active filter banner when filter is on) |
 | Zoom range | [11, 18] (`minzoom: 11`) |
 | Hover highlight | `setFeatureState({ hover: true })` on ring layer |
-| Filters | Gender (All/Male/Female) + Race (All/Malay/Chinese/Indian) via sidebar buttons |
+| Filters | Gender (All/Male/Female) + Race (All/Malay/Chinese/Indian) via sidebar buttons — updates `circle-radius` paint property (NOT `setFilter`) so all 945 bubbles stay visible but resize to reflect the selected sub-count |
 
 **DM Centroid Generation** (Strategy C — Shapely grid-in-polygon):
 
@@ -260,8 +260,8 @@ Defined in `src/lib/map/color-scales.ts` as `PARL_COLOR_SCALES` array.
 |-------------|--------|----------|
 | DM hover | `mousemove` on `dm-bubble` | Tooltip (name + count), `setFeatureState` hover ring, cursor pointer |
 | DM click | `click` on `dm-bubble` | Popup with 14-field demographics |
-| Gender filter | 3 buttons (All/Male/Female) | Filter DM bubbles by gender sub-counts |
-| Race filter | 4 buttons (All/Malay/Chinese/Indian) | Filter DM bubbles by race sub-counts |
+| Gender filter | 3 buttons (All/Male/Female) | Resize DM bubbles via `circle-radius` paint property to reflect selected gender sub-count; popup/tooltip show filtered count & % |
+| Race filter | 4 buttons (All/Malay/Chinese/Indian) | Resize DM bubbles via `circle-radius` paint property to reflect selected race sub-count; popup/tooltip show filtered count & % |
 | Parliament hover | `mousemove` on `parliament-fill` | `setFeatureState` hover=true, cursor pointer |
 | Parliament click | `click` on `parliament-fill` | Popup with 12-field stats + filter DUNs by `parent_parl` + flyTo zoom 10.5 |
 | DUN hover | `mousemove` on `dun-fill` | `setFeatureState` hover=true, cursor pointer |
@@ -444,7 +444,7 @@ python scripts/generate_dm_centroids.py
 
 ### 9.2 Phase 3: DM Centroids
 
-945 circle features with embedded stats (849 KB). GeoJSON source is fine — no vector tiles needed. Proportional circle-radius via `interpolate` expression. Gender/race filtering via MapLibre `setFilter()` on sub-count fields.
+945 circle features with embedded stats (849 KB). GeoJSON source is fine — no vector tiles needed. Proportional circle-radius via `interpolate` expression (3px at 2K → 20px at 27K voters, `DM_MAX_VOTERS = 27,000`). Gender/race filtering updates the `circle-radius` paint property (not `setFilter`) so all 945 bubbles remain visible and resize proportionally.
 
 ### 9.3 Phase 5: 3.97M Voter Points
 
@@ -598,3 +598,23 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [CLOUDFLARE_D1_DATABASE.md](./CLOUDFLARE_D1_DATABASE.md) — D1 schema and migration details
 - [CLOUDFLARE_PHASE_COMPATIBILITY.md](./CLOUDFLARE_PHASE_COMPATIBILITY.md) — Phase × CF compatibility
 - [docs/CLOUDFLARE_IMPLEMENTATION_CHECKLIST.md](./docs/CLOUDFLARE_IMPLEMENTATION_CHECKLIST.md) — Task tracking
+
+---
+
+## 14. Bug Fix Log
+
+### DM Bubble Layer Filter Fixes (2026-08)
+
+**BUG 1 — `setFilter()` hiding DMs with zero sub-count** (commit cc4a1ce):
+
+DM Race/Gender filters were using `map.setFilter()` to hide bubbles whose selected demographic sub-count was zero (e.g., 35 DMs with 0 Indian voters vanished from the map). Fixed by switching to paint-property-based filtering — all 945 bubbles stay visible and resize proportionally via `circle-radius` interpolation on the selected sub-count field.
+
+**BUG 2 — `DM_MAX_VOTERS` clamping caused indistinguishable radii** (this fix):
+
+`DM_MAX_VOTERS` was set to 9,500 (a sub-count maximum), but `total_voters` ranges up to 26,156. This caused MapLibre's `interpolate` expression to **clamp 59 DMs at maximum radius**. When toggling Male/Female on these DMs, the sub-counts remained near or above 9,500, producing nearly identical radii (e.g., Bandar Puncak Alam: All=20px, Male=19.82px, Female=20px — no visible change). Fixed by raising `DM_MAX_VOTERS` to **27,000** to cover the full data range, giving meaningful visual differentiation across all filter combos.
+
+**Additional improvements:**
+- Created `test_dm_radius_engine.py` with 5 tests covering clamping, shrinkage, visible difference, Bandar Puncak Alam specific check, and data integrity
+- All 945 DMs × 12 filter combinations (10,395 checks) now pass
+- DM click popup shows an **Active Filter** banner when a filter is active, displaying the filtered count and percentage
+- DM hover tooltip also shows the filtered count and label

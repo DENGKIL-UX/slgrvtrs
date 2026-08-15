@@ -145,6 +145,19 @@ Confirmed scripts in `dashboard/package.json`:
 
 > **Note**: `selangor_outline.geojson` was missing from the first deploy (37 assets), causing a 404 and JSON parse error on the map. This was fixed and confirmed uploaded in the second deploy (46 assets).
 
+### [x] CF-19: Post-Deploy DM Bubble Layer Bug Fixes
+
+Two bugs in the DM (Layer 3) bubble filter logic were found and fixed after initial Phase 3 deployment:
+
+1. **BUG 1** (commit cc4a1ce): `setFilter()` was hiding DMs whose selected demographic sub-count was zero (35 DMs vanished when filtering by Indian, etc.). Fixed by switching to paint-property-based `circle-radius` updates — all 945 bubbles remain visible and resize proportionally.
+
+2. **BUG 2**: `DM_MAX_VOTERS` was 9,500 (sub-count max) but `total_voters` goes up to 26,156. This clamped 59 DMs at max radius, making Male/Female toggles visually indistinguishable on high-voter DMs (e.g., Bandar Puncak Alam: All=20px, Male=19.82px). Fixed by raising `DM_MAX_VOTERS` to **27,000**.
+
+Additional: added `test_dm_radius_engine.py` (5 tests, 10,395 checks passing), Active Filter banner in DM popup, filtered count/label in DM hover tooltip.
+
+**Files changed**: `MapDashboard.tsx`, new `test_dm_radius_engine.py`
+**No CF config changes needed** — purely frontend logic fixes.
+
 ---
 
 ## Phase C: D1 Database (Phase 3+ DM Queries)
@@ -240,7 +253,7 @@ Already configured via CF dashboard Git integration. Pushes to `main` auto-deplo
 ```
 CF-00 (fix next.config.ts) ✅
   ├── CF-01..04 (Static deploy — SKIPPED, went straight to Workers)
-  └── CF-10..18 (Workers deploy — COMPLETE ✅)
+  └── CF-10..19 (Workers deploy + post-deploy fixes — COMPLETE ✅)
         └── CF-20..25 (D1 database — ready, not started)
               └── CF-30..32 (R2 storage — future)
                     └── CF-40..41 (CI/CD — optional)
@@ -252,7 +265,7 @@ CF-00 (fix next.config.ts) ✅
 |-------|-------|--------|-------|
 | Pre-Flight | CF-00 | **DONE** | next.config.ts fixed |
 | A: Static | CF-01..04 | **SKIPPED** | Went straight to Workers |
-| B: Workers | CF-10..18 | **DONE** | Live at workers.dev |
+| B: Workers | CF-10..19 | **DONE** | Live at workers.dev; DM bubble filter bugs fixed |
 | C: D1 | CF-20..25 | **Ready** | SQL files generated, D1 not provisioned |
 | D: R2 | CF-30..32 | **Future** | Needs PMTiles build first |
 | E: CI/CD | CF-40..41 | **Optional** | Git integration already auto-deploys |
