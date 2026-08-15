@@ -327,13 +327,12 @@ export default function MapDashboard() {
       try {
         initMapLibre();
 
-        const [parlRes, statsRes, dunRes, dunStatsRes, outlineRes, dmCentroidsRes] = await Promise.all([
+        const [parlRes, statsRes, dunRes, dunStatsRes, outlineRes] = await Promise.all([
           fetch('/boundaries/selangor_parliament.geojson'),
           fetch('/stats/parliament.json'),
           fetch('/boundaries/selangor_dun.geojson'),
           fetch('/stats/dun.json'),
           fetch('/boundaries/selangor_outline.geojson').catch(() => null),
-          fetch('/boundaries/dm_centroids.geojson').catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -345,7 +344,23 @@ export default function MapDashboard() {
           dunStatsRes.json() as Promise<DUNStatsMap>,
         ]);
         const outlineGeojson = outlineRes ? await outlineRes.json().catch(() => null) : null;
-        const dmCentroids = dmCentroidsRes ? await dmCentroidsRes.json().catch(() => null) : null;
+
+        // DM centroids: try D1 API first, fall back to static GeoJSON
+        let dmCentroids: GeoJSON.FeatureCollection | null = null;
+        try {
+          const dmRes = await fetch('/api/dm?format=geojson');
+          if (dmRes.ok) {
+            dmCentroids = await dmRes.json();
+          }
+        } catch { /* API unavailable — fall through to static */ }
+        if (!dmCentroids) {
+          try {
+            const fallback = await fetch('/boundaries/dm_centroids.geojson');
+            if (fallback.ok) {
+              dmCentroids = await fallback.json();
+            }
+          } catch { /* static file also unavailable */ }
+        }
 
         // Store DM centroids ref for filter updates
         if (dmCentroids) {

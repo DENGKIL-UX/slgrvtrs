@@ -1,8 +1,6 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
-
 interface DMRow {
   dm_code: string;
   name: string;
@@ -22,6 +20,8 @@ interface DMRow {
   age_mean: number;
   age_median: number;
   contact_pct: number;
+  centroid_lng: number | null;
+  centroid_lat: number | null;
   male_malay: number;
   male_chinese: number;
   male_indian: number;
@@ -30,23 +30,9 @@ interface DMRow {
   female_chinese: number;
   female_indian: number;
   female_other: number;
-  centroid_lng: number | null;
-  centroid_lat: number | null;
 }
 
-interface Feature {
-  type: 'Feature';
-  properties: Record<string, unknown>;
-  geometry: { type: 'Point'; coordinates: [number, number] };
-}
-
-interface FeatureCollection {
-  type: 'FeatureCollection';
-  features: Feature[];
-}
-
-function rowToFeature(row: DMRow): Feature | null {
-  if (row.centroid_lng == null || row.centroid_lat == null) return null;
+function rowToFeature(row: DMRow): GeoJSON.Feature {
   return {
     type: 'Feature',
     properties: {
@@ -75,15 +61,20 @@ function rowToFeature(row: DMRow): Feature | null {
       female_indian: row.female_indian,
       female_other: row.female_other,
     },
-    geometry: {
-      type: 'Point',
-      coordinates: [row.centroid_lng, row.centroid_lat],
-    },
+    geometry: row.centroid_lng && row.centroid_lat
+      ? { type: 'Point' as const, coordinates: [row.centroid_lng, row.centroid_lat] }
+      : { type: 'Point' as const, coordinates: [0, 0] },
   };
 }
 
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+};
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const { env } = await getCloudflareContext();
+
   const format = searchParams.get('format') || 'geojson';
   const dun = searchParams.get('dun');
   const parl = searchParams.get('parl');
@@ -112,27 +103,21 @@ export async function GET(request: Request) {
 
   sql += ' ORDER BY total_voters DESC';
 
-  let result;
-  try {
-    const { env } = await getCloudflareContext({ async: true });
-    result = await env.DB.prepare(sql).bind(...params).all<DMRow>();
-  } catch {
+  const result = await env.DB.prepare(sql).bind(...params).all<DMRow>();
+
+  if (format === 'json') {
     return NextResponse.json(
-      { error: 'D1 database not available. Provision D1 and configure in wrangler.jsonc.' },
-      { status: 503 },
+      { total: result.results.length, data: result.results },
+      { headers: CACHE_HEADERS }
     );
   }
 
-  const cacheHeaders = {
-    'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+  const features = result.results.map(rowToFeature);
+
+  const geojson: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features,
   };
 
-  if (format === 'json') {
-    return NextResponse.json({ total: result.results.length, data: result.results }, { headers: cacheHeaders });
-  }
-
-  const features = result.results.map(rowToFeature).filter((f): f is Feature => f !== null);
-
-  const geojson: FeatureCollection = { type: 'FeatureCollection', features };
-  return NextResponse.json(geojson, { headers: cacheHeaders });
+  return NextResponse.json(geojson, { headers: CACHE_HEADERS });
 }

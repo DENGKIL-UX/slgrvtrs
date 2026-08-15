@@ -97,7 +97,7 @@ def generate_dm_sql(dm_data: dict, centroids: dict | None) -> str:
                 coord_map[code] = (geom['coordinates'][0], geom['coordinates'][1])
 
     cols = (
-        "dm_code, name, dun_code, code_parlimen, voter_prefix, "
+        "dm_code, name, dun_code, code_parlimen, voter_prefix, dun_prefix, "
         "total_voters, male, female, male_pct, female_pct, "
         "malay_pct, chinese_pct, indian_pct, other_pct, "
         "age_mean, age_median, contact_pct, "
@@ -154,6 +154,7 @@ def generate_dm_sql(dm_data: dict, centroids: dict | None) -> str:
             f"'{dun_code_fk}', "
             f"'{parl_code_fk}', "
             f"'{voter_prefix}', "
+            f"'{dun_prefix}', "
             f"{d['total_voters']}, {d['male']}, {d['female']}, "
             f"{d['male_pct']}, {d['female_pct']}, "
             f"{d['malay_pct']}, {d['chinese_pct']}, {d['indian_pct']}, {d['other_pct']}, "

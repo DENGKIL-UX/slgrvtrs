@@ -16,17 +16,13 @@
     "binding": "ASSETS"
   },
 
-  // D1 database binding — uncomment when D1 is provisioned (Phase 3+)
-  // Create with: npx wrangler d1 create slgrvtrs-voters
-  // Then paste the database_id below:
-  //
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "slgrvtrs-voters",
-  //     "database_id": "<YOUR_DATABASE_ID>"
-  //   }
-  // ]
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "slgrvtrs-voters",
+      "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb"
+    }
+  ]
 
   // R2 bucket binding — uncomment when R2 is provisioned (Phase 5 PMTiles)
   // Create with: npx wrangler r2 bucket create slgrvtrs-tiles
