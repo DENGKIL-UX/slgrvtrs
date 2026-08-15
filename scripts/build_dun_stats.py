@@ -1,29 +1,53 @@
 #!/usr/bin/env python3
-"""Build stats/dun.json from full_analysis.json.
+"""Build stats/dun.json from full_analysis.json + raw xlsx files.
 
 Transforms the dun_analysis dict (keyed by voter code like "01.SUNGAI AIR TAWAR")
 into the stats/dun.json format (keyed by voter_prefix like "01") matching the
 GeoJSON voter_prefix property.
+
+contact_pct is computed PER-DUN from the raw xlsx files (not the global average)
+using pandas+calamine. full_analysis.json's dun_analysis lacks per-DUN contact data.
 """
 
 import json
 import os
 
+import pandas as pd
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(REPO_ROOT, 'data')
+
+XLSX_FILES = [
+    '01_SL_part01.1mil (mcw).xlsx',
+    '01_SL_part02.1mil (mcw).xlsx',
+    '01_SL_part03.1mil (mcw).xlsx',
+    '01_SL_part04-971650 (mcw).xlsx',
+]
 
 with open(os.path.join(REPO_ROOT, 'analysis/full_analysis.json')) as f:
     analysis = json.load(f)
 
 dun_analysis = analysis['dun_analysis']  # keyed by "01.SUNGAI AIR TAWAR"
-data_completeness = analysis.get('data_completeness', {})
 
-# Get contact_pct from per_file_analysis (average across files)
-per_file = analysis.get('per_file_analysis', [])
-if per_file:
-    contact_pcts = [pf.get('contact_pct', 0) for pf in per_file if 'contact_pct' in pf]
-    avg_contact = sum(contact_pcts) / len(contact_pcts) if contact_pcts else 0
-else:
-    avg_contact = data_completeness.get('contact_pct', 0)
+# --- Compute per-DUN contact_pct from raw xlsx files ---
+print('Computing per-DUN contact_pct from xlsx ...', flush=True)
+frames = []
+for fname in XLSX_FILES:
+    fpath = os.path.join(DATA_DIR, fname)
+    if os.path.exists(fpath):
+        df = pd.read_excel(fpath, engine='calamine', usecols=['DUN_CODE', 'CONTACT#'])
+        frames.append(df)
+        print(f'  {fname}: {len(df):,} rows', flush=True)
+
+combined = pd.concat(frames, ignore_index=True)
+combined['dun_num'] = combined['DUN_CODE'].astype(str).str.extract(r'^(\d+)')[0].str.zfill(2)
+combined['has_contact'] = combined['CONTACT#'].astype(str).str.upper().str.strip() == 'YES'
+per_dun = combined.groupby('dun_num').agg(
+    total=('has_contact', 'count'),
+    contact_yes=('has_contact', 'sum'),
+)
+per_dun_contact = (per_dun['contact_yes'] / per_dun['total'] * 100).round(2).to_dict()
+print(f'  {len(per_dun_contact)} DUNs with contact data', flush=True)
 
 stats = {}
 
@@ -63,7 +87,7 @@ for key, val in dun_analysis.items():
         'other_pct': other_pct,
         'age_mean': val['age_mean'],
         'age_median': val['age_median'],
-        'contact_pct': round(avg_contact, 2),
+        'contact_pct': per_dun_contact.get(voter_prefix, 0),
         'dm_count': val['dm_count'],
         'locality_count': val.get('locality_count', 0),
     }

@@ -14,7 +14,7 @@
     "other_pct": 0.04,
     "age_mean": 44.39,
     "age_median": 42.0,
-    "contact_pct": 76.84,
+    "contact_pct": 78.23,
     "dm_count": 15,
     "locality_count": 71
   },
@@ -33,7 +33,7 @@
     "other_pct": 0.03,
     "age_mean": 43.55,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.82,
     "dm_count": 17,
     "locality_count": 157
   },
@@ -52,7 +52,7 @@
     "other_pct": 0.02,
     "age_mean": 42.27,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 74.9,
     "dm_count": 19,
     "locality_count": 104
   },
@@ -71,7 +71,7 @@
     "other_pct": 0.09,
     "age_mean": 44.86,
     "age_median": 42.0,
-    "contact_pct": 76.84,
+    "contact_pct": 80.36,
     "dm_count": 11,
     "locality_count": 86
   },
@@ -90,7 +90,7 @@
     "other_pct": 0.03,
     "age_mean": 44.83,
     "age_median": 42.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.34,
     "dm_count": 15,
     "locality_count": 91
   },
@@ -109,7 +109,7 @@
     "other_pct": 0.18,
     "age_mean": 43.73,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.31,
     "dm_count": 16,
     "locality_count": 185
   },
@@ -128,7 +128,7 @@
     "other_pct": 0.1,
     "age_mean": 39.73,
     "age_median": 36.0,
-    "contact_pct": 76.84,
+    "contact_pct": 71.27,
     "dm_count": 19,
     "locality_count": 203
   },
@@ -147,7 +147,7 @@
     "other_pct": 0.03,
     "age_mean": 43.05,
     "age_median": 40.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.11,
     "dm_count": 15,
     "locality_count": 202
   },
@@ -166,7 +166,7 @@
     "other_pct": 0.08,
     "age_mean": 43.87,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 81.06,
     "dm_count": 19,
     "locality_count": 151
   },
@@ -185,7 +185,7 @@
     "other_pct": 0.08,
     "age_mean": 42.31,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 74.69,
     "dm_count": 14,
     "locality_count": 166
   },
@@ -204,7 +204,7 @@
     "other_pct": 0.05,
     "age_mean": 43.25,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.73,
     "dm_count": 11,
     "locality_count": 80
   },
@@ -223,7 +223,7 @@
     "other_pct": 0.03,
     "age_mean": 39.31,
     "age_median": 36.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.11,
     "dm_count": 12,
     "locality_count": 108
   },
@@ -242,7 +242,7 @@
     "other_pct": 0.06,
     "age_mean": 39.48,
     "age_median": 36.0,
-    "contact_pct": 76.84,
+    "contact_pct": 76.93,
     "dm_count": 9,
     "locality_count": 125
   },
@@ -261,7 +261,7 @@
     "other_pct": 0.15,
     "age_mean": 41.77,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.71,
     "dm_count": 18,
     "locality_count": 160
   },
@@ -280,7 +280,7 @@
     "other_pct": 0.1,
     "age_mean": 42.69,
     "age_median": 40.0,
-    "contact_pct": 76.84,
+    "contact_pct": 79.06,
     "dm_count": 16,
     "locality_count": 297
   },
@@ -299,7 +299,7 @@
     "other_pct": 0.1,
     "age_mean": 43.31,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 78.73,
     "dm_count": 12,
     "locality_count": 252
   },
@@ -318,7 +318,7 @@
     "other_pct": 0.1,
     "age_mean": 41.79,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.45,
     "dm_count": 15,
     "locality_count": 454
   },
@@ -337,7 +337,7 @@
     "other_pct": 0.07,
     "age_mean": 44.84,
     "age_median": 42.0,
-    "contact_pct": 76.84,
+    "contact_pct": 80.64,
     "dm_count": 20,
     "locality_count": 302
   },
@@ -356,7 +356,7 @@
     "other_pct": 1.67,
     "age_mean": 45.12,
     "age_median": 43.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.44,
     "dm_count": 19,
     "locality_count": 142
   },
@@ -375,7 +375,7 @@
     "other_pct": 1.24,
     "age_mean": 43.26,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 78.71,
     "dm_count": 18,
     "locality_count": 346
   },
@@ -394,7 +394,7 @@
     "other_pct": 10.32,
     "age_mean": 44.31,
     "age_median": 42.0,
-    "contact_pct": 76.84,
+    "contact_pct": 82.49,
     "dm_count": 18,
     "locality_count": 230
   },
@@ -413,7 +413,7 @@
     "other_pct": 18.95,
     "age_mean": 44.72,
     "age_median": 43.0,
-    "contact_pct": 76.84,
+    "contact_pct": 81.14,
     "dm_count": 16,
     "locality_count": 551
   },
@@ -432,7 +432,7 @@
     "other_pct": 10.07,
     "age_mean": 42.76,
     "age_median": 40.0,
-    "contact_pct": 76.84,
+    "contact_pct": 76.75,
     "dm_count": 18,
     "locality_count": 166
   },
@@ -451,7 +451,7 @@
     "other_pct": 5.19,
     "age_mean": 39.55,
     "age_median": 36.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.16,
     "dm_count": 23,
     "locality_count": 177
   },
@@ -470,7 +470,7 @@
     "other_pct": 15.03,
     "age_mean": 41.8,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.73,
     "dm_count": 21,
     "locality_count": 196
   },
@@ -489,7 +489,7 @@
     "other_pct": 3.78,
     "age_mean": 39.38,
     "age_median": 36.0,
-    "contact_pct": 76.84,
+    "contact_pct": 81.77,
     "dm_count": 14,
     "locality_count": 122
   },
@@ -508,7 +508,7 @@
     "other_pct": 17.44,
     "age_mean": 42.43,
     "age_median": 40.0,
-    "contact_pct": 76.84,
+    "contact_pct": 79.67,
     "dm_count": 18,
     "locality_count": 156
   },
@@ -527,7 +527,7 @@
     "other_pct": 22.92,
     "age_mean": 45.82,
     "age_median": 44.0,
-    "contact_pct": 76.84,
+    "contact_pct": 79.07,
     "dm_count": 21,
     "locality_count": 278
   },
@@ -546,7 +546,7 @@
     "other_pct": 10.28,
     "age_mean": 40.56,
     "age_median": 38.0,
-    "contact_pct": 76.84,
+    "contact_pct": 73.7,
     "dm_count": 14,
     "locality_count": 123
   },
@@ -565,7 +565,7 @@
     "other_pct": 12.27,
     "age_mean": 42.69,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.53,
     "dm_count": 23,
     "locality_count": 164
   },
@@ -584,7 +584,7 @@
     "other_pct": 13.78,
     "age_mean": 46.75,
     "age_median": 45.0,
-    "contact_pct": 76.84,
+    "contact_pct": 80.68,
     "dm_count": 26,
     "locality_count": 145
   },
@@ -603,7 +603,7 @@
     "other_pct": 2.92,
     "age_mean": 43.39,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 78.89,
     "dm_count": 20,
     "locality_count": 189
   },
@@ -622,7 +622,7 @@
     "other_pct": 1.59,
     "age_mean": 44.1,
     "age_median": 42.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.62,
     "dm_count": 16,
     "locality_count": 430
   },
@@ -641,7 +641,7 @@
     "other_pct": 7.34,
     "age_mean": 54.63,
     "age_median": 55.0,
-    "contact_pct": 76.84,
+    "contact_pct": 73.43,
     "dm_count": 20,
     "locality_count": 759
   },
@@ -660,7 +660,7 @@
     "other_pct": 6.56,
     "age_mean": 54.71,
     "age_median": 55.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.67,
     "dm_count": 18,
     "locality_count": 290
   },
@@ -679,7 +679,7 @@
     "other_pct": 6.26,
     "age_mean": 48.64,
     "age_median": 48.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.76,
     "dm_count": 18,
     "locality_count": 534
   },
@@ -698,7 +698,7 @@
     "other_pct": 5.2,
     "age_mean": 42.42,
     "age_median": 40.0,
-    "contact_pct": 76.84,
+    "contact_pct": 76.83,
     "dm_count": 21,
     "locality_count": 528
   },
@@ -717,7 +717,7 @@
     "other_pct": 1.72,
     "age_mean": 39.54,
     "age_median": 36.0,
-    "contact_pct": 76.84,
+    "contact_pct": 72.94,
     "dm_count": 11,
     "locality_count": 277
   },
@@ -736,7 +736,7 @@
     "other_pct": 2.89,
     "age_mean": 40.35,
     "age_median": 37.0,
-    "contact_pct": 76.84,
+    "contact_pct": 77.24,
     "dm_count": 17,
     "locality_count": 366
   },
@@ -755,7 +755,7 @@
     "other_pct": 2.27,
     "age_mean": 40.41,
     "age_median": 37.0,
-    "contact_pct": 76.84,
+    "contact_pct": 78.56,
     "dm_count": 20,
     "locality_count": 110
   },
@@ -774,7 +774,7 @@
     "other_pct": 0.97,
     "age_mean": 43.38,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 79.51,
     "dm_count": 20,
     "locality_count": 60
   },
@@ -793,7 +793,7 @@
     "other_pct": 1.07,
     "age_mean": 39.88,
     "age_median": 37.0,
-    "contact_pct": 76.84,
+    "contact_pct": 74.13,
     "dm_count": 12,
     "locality_count": 273
   },
@@ -812,7 +812,7 @@
     "other_pct": 0.78,
     "age_mean": 40.51,
     "age_median": 37.0,
-    "contact_pct": 76.84,
+    "contact_pct": 73.53,
     "dm_count": 16,
     "locality_count": 242
   },
@@ -831,7 +831,7 @@
     "other_pct": 0.86,
     "age_mean": 42.54,
     "age_median": 40.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.91,
     "dm_count": 16,
     "locality_count": 349
   },
@@ -850,7 +850,7 @@
     "other_pct": 2.33,
     "age_mean": 46.56,
     "age_median": 45.0,
-    "contact_pct": 76.84,
+    "contact_pct": 78.28,
     "dm_count": 19,
     "locality_count": 436
   },
@@ -869,7 +869,7 @@
     "other_pct": 1.17,
     "age_mean": 41.46,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 75.17,
     "dm_count": 14,
     "locality_count": 225
   },
@@ -888,7 +888,7 @@
     "other_pct": 2.93,
     "age_mean": 48.77,
     "age_median": 48.0,
-    "contact_pct": 76.84,
+    "contact_pct": 78.27,
     "dm_count": 23,
     "locality_count": 548
   },
@@ -907,7 +907,7 @@
     "other_pct": 2.39,
     "age_mean": 40.52,
     "age_median": 38.0,
-    "contact_pct": 76.84,
+    "contact_pct": 76.37,
     "dm_count": 13,
     "locality_count": 362
   },
@@ -926,7 +926,7 @@
     "other_pct": 1.12,
     "age_mean": 40.37,
     "age_median": 38.0,
-    "contact_pct": 76.84,
+    "contact_pct": 74.49,
     "dm_count": 19,
     "locality_count": 256
   },
@@ -945,7 +945,7 @@
     "other_pct": 2.72,
     "age_mean": 40.91,
     "age_median": 38.0,
-    "contact_pct": 76.84,
+    "contact_pct": 76.0,
     "dm_count": 14,
     "locality_count": 581
   },
@@ -964,7 +964,7 @@
     "other_pct": 1.4,
     "age_mean": 40.32,
     "age_median": 38.0,
-    "contact_pct": 76.84,
+    "contact_pct": 69.97,
     "dm_count": 19,
     "locality_count": 112
   },
@@ -983,7 +983,7 @@
     "other_pct": 1.91,
     "age_mean": 43.74,
     "age_median": 42.0,
-    "contact_pct": 76.84,
+    "contact_pct": 76.08,
     "dm_count": 13,
     "locality_count": 96
   },
@@ -1002,7 +1002,7 @@
     "other_pct": 0.8,
     "age_mean": 41.87,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 72.39,
     "dm_count": 13,
     "locality_count": 136
   },
@@ -1021,7 +1021,7 @@
     "other_pct": 1.44,
     "age_mean": 43.86,
     "age_median": 41.0,
-    "contact_pct": 76.84,
+    "contact_pct": 74.25,
     "dm_count": 14,
     "locality_count": 57
   },
@@ -1040,7 +1040,7 @@
     "other_pct": 1.57,
     "age_mean": 39.06,
     "age_median": 36.0,
-    "contact_pct": 76.84,
+    "contact_pct": 72.34,
     "dm_count": 23,
     "locality_count": 270
   },
@@ -1059,7 +1059,7 @@
     "other_pct": 1.41,
     "age_mean": 41.46,
     "age_median": 39.0,
-    "contact_pct": 76.84,
+    "contact_pct": 74.74,
     "dm_count": 14,
     "locality_count": 153
   }
