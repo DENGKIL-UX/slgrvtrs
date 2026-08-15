@@ -177,18 +177,19 @@ export default function MapDashboard() {
           fetch('/stats/parliament.json'),
           fetch('/boundaries/selangor_dun.geojson'),
           fetch('/stats/dun.json'),
-          fetch('/boundaries/selangor_outline.geojson'),
+          fetch('/boundaries/selangor_outline.geojson').catch(() => null),
         ]);
 
         if (cancelled) return;
 
-        const [parlGeojson, stats, dunGeojson, dunStats, outlineGeojson] = await Promise.all([
+        // Parse responses — outline is optional (graceful degradation)
+        const [parlGeojson, stats, dunGeojson, dunStats] = await Promise.all([
           parlRes.json(),
           statsRes.json() as Promise<StatsMap>,
           dunRes.json(),
           dunStatsRes.json() as Promise<DUNStatsMap>,
-          outlineRes.json(),
         ]);
+        const outlineGeojson = outlineRes ? await outlineRes.json().catch(() => null) : null;
 
         // Join stats into parliament GeoJSON properties
         const joined = joinStatsToGeoJSON(parlGeojson, stats);
@@ -235,11 +236,13 @@ export default function MapDashboard() {
 
           // ==== SOURCES ====
 
-          // State outline (JAKIM) — always behind everything
+          // State outline (JAKIM) — always behind everything (optional)
+          if (outlineGeojson) {
           map.addSource('outline', {
             type: 'geojson',
             data: outlineGeojson,
           });
+          }
 
           // Parliament (with joined stats)
           map.addSource('parliament', {
@@ -253,7 +256,8 @@ export default function MapDashboard() {
             data: dunJoined,
           });
 
-          // ==== STATE OUTLINE LAYER ====
+          // ==== STATE OUTLINE LAYER (optional) ====
+          if (outlineGeojson) {
           map.addLayer({
             id: 'outline-fill',
             type: 'fill',
@@ -273,6 +277,7 @@ export default function MapDashboard() {
               'line-opacity': 0.9,
             },
           });
+          }
 
           // ---- Initial scale ----
           const scale = getScaleById('total_voters');
