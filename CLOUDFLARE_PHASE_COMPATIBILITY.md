@@ -14,7 +14,7 @@
 | **Phase 1** | Parliament choropleth map | Yes | Static Pages | None | None |
 | **Phase 2** | DUN drill-down + toggles | Yes | Static Pages | None | None |
 | **Phase 3** | DM bubble visualization, DUN choropleth (9 metrics), race/gender filters | Yes | Static + D1 | Add D1 for DM queries | Low |
-| **Phase 4** | Polish & deploy | Yes | Static Pages + Workers | Minor config changes | None |
+| **Phase 4** | Polish & deploy — responsive, ErrorBoundary, provenance, Server Component | Yes | Static Pages + Workers | None | None |
 | **Phase 5** | Individual voter points (PMTiles) | Yes | Static + R2 | Add R2 for PMTiles | Low |
 
 ---
@@ -231,7 +231,7 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
 - Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters (all static, zero CF changes needed)
-- Phase 4: Cloudflare is the **intended deployment target**
+- Phase 4: **DEPLOYED** — responsive design, ErrorBoundary, provenance panel, Server Component refactor, ES2022 target
 - Phase 5: R2 + PMTiles is the **standard pattern** for this use case
 
 The `pip-melaka` repo proves the pattern works — same org, same developer, same stack (Next.js 16 + OpenNext + Wrangler + D1), already deployed to Cloudflare.

@@ -1,12 +1,37 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Map, Popup, NavigationControl, AttributionControl, LngLatBounds, type FilterSpecification } from '@/lib/map/setup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMapLibre } from '@/lib/map/setup';
 import { joinStatsToGeoJSON, type StatsMap, type ParliamentStats } from '@/lib/map/join-stats';
 import { buildColorExpression, getScaleById, getDunScaleById, COLOR_SCALES, DUN_COLOR_SCALES, type ColorScale } from '@/lib/map/color-scales';
 import Legend from '@/components/map/Legend';
+
+// ============================================================
+// Provenance data (embedded — avoids runtime fetch)
+// ============================================================
+const PROVENANCE = {
+  boundaries: {
+    source: 'MECo (Thevesh, 2025) — Malaysian Election Corpus',
+    doi: '10.5281/zenodo.18093017',
+    license: 'CC0',
+    year: '2018+ (post-delimitation)',
+    note: 'Parliament & DUN boundaries filtered to Selangor. Not official SPR boundaries.',
+  },
+  voters: {
+    source: 'Private voter registry data',
+    total: '3,971,650',
+    aggregation: 'Python (pandas + calamine) from 4 xlsx files',
+  },
+  tech: {
+    map: 'MapLibre GL JS 6.3 (WebGL2, ESM)',
+    framework: 'Next.js 16.3 + TypeScript',
+    hosting: 'Cloudflare Workers (free tier)',
+    url: 'https://slgrvtrs.ritz-analytics.workers.dev',
+  },
+} as const;
+
 
 // ============================================================
 // Types
@@ -145,8 +170,10 @@ export default function MapDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showProvenance, setShowProvenance] = useState(false);
   const [activeMetric, setActiveMetric] = useState('total_voters');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [layers, setLayers] = useState<LayerVisibility>(DEFAULT_LAYERS);
   const [drilledParl, setDrilledParl] = useState<string | null>(null);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>('all');
@@ -159,6 +186,24 @@ export default function MapDashboard() {
   useEffect(() => { genderFilterRef.current = genderFilter; }, [genderFilter]);
   const raceFilterRef = useRef(raceFilter);
   useEffect(() => { raceFilterRef.current = raceFilter; }, [raceFilter]);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const update = () => {
+      const mobile = mq.matches;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+    };
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  // Close sidebar on mobile when map is clicked/tapped
+  const handleMapContainerClick = useCallback(() => {
+    if (isMobile && sidebarOpen) setSidebarOpen(false);
+  }, [isMobile, sidebarOpen]);
 
   // ------- Toggle layer visibility -------
   const toggleLayer = useCallback((group: keyof LayerVisibility) => {
@@ -182,6 +227,11 @@ export default function MapDashboard() {
       return next;
     });
   }, []);
+
+  // Close sidebar on mobile after drill-down
+  useEffect(() => {
+    if (drilledParl && isMobile) setSidebarOpen(false);
+  }, [drilledParl, isMobile]);
 
   // ------- Reset drill-down -------
   const resetDrillDown = useCallback(() => {
@@ -675,10 +725,20 @@ export default function MapDashboard() {
     : getScaleById(activeMetric);
 
   return (
-    <div className="relative w-full h-screen flex overflow-hidden bg-slate-100">
+    <div className="relative w-full h-screen flex overflow-hidden bg-slate-100" onClick={handleMapContainerClick}>
+      {/* Mobile overlay backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-20 md:hidden"
+          onClick={(e) => { e.stopPropagation(); setSidebarOpen(false); }}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ======= Sidebar ======= */}
       <aside
-        className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 bg-white border-r border-slate-200 flex-shrink-0 overflow-hidden flex flex-col`}
+        className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 bg-white border-r border-slate-200 flex-shrink-0 overflow-hidden flex flex-col ${isMobile ? 'fixed top-0 left-0 h-full z-30 shadow-xl' : 'relative'}`}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="p-4 border-b border-slate-200 flex-shrink-0">
@@ -790,19 +850,19 @@ export default function MapDashboard() {
             ElectionData.MY. Not official SPR boundaries.
           </p>
           <p className="text-[10px] text-slate-400 mt-1">
-            Phase 3 — Parliament + DUN + DM Bubbles + Race/Gender Filters
+            Phase 4 — Responsive, ErrorBoundary, Provenance Panel
           </p>
         </div>
       </aside>
 
       {/* ======= Map ======= */}
-      <main className="flex-1 relative">
+      <main className="flex-1 relative min-w-0">
         <button
-          onClick={() => setSidebarOpen((o) => !o)}
-          className="absolute top-3 left-3 z-10 bg-white rounded-md shadow-md p-2 hover:bg-slate-50 transition-colors border border-slate-200"
+          onClick={(e) => { e.stopPropagation(); setSidebarOpen((o) => !o); }}
+          className={`absolute top-3 left-3 z-10 bg-white rounded-md shadow-md hover:bg-slate-50 transition-colors border border-slate-200 \${isMobile ? 'p-2.5' : 'p-2'}`}
           aria-label="Toggle sidebar"
         >
-          <svg className="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`\${isMobile ? 'w-5 h-5' : 'w-4 h-4'} text-slate-700`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {sidebarOpen ? (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
             ) : (
@@ -810,7 +870,7 @@ export default function MapDashboard() {
             )}
           </svg>
         </button>
-        <div ref={containerRef} className="w-full h-full" />
+        <div ref={containerRef} className="w-full h-full touch-action-none" />
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-100/90 z-20">
             <div className="flex items-center gap-3">
@@ -821,9 +881,74 @@ export default function MapDashboard() {
         )}
         {error && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-100/95 z-20">
-            <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm text-center">
-              <p className="text-red-600 font-medium">Failed to load</p>
+            <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm text-center mx-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <p className="text-red-600 font-medium">Failed to load map data</p>
               <p className="text-sm text-slate-500 mt-1">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 transition-colors"
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Provenance info button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowProvenance((p) => !p); }}
+          className="absolute bottom-3 left-3 z-10 bg-white/90 backdrop-blur rounded-md shadow-sm px-2 py-1.5 hover:bg-white transition-colors border border-slate-200 flex items-center gap-1.5"
+          aria-label="Data provenance"
+          title="Data provenance & sources"
+        >
+          <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">Sources</span>
+        </button>
+
+        {/* Provenance panel */}
+        {showProvenance && (
+          <div
+            className="absolute bottom-12 left-3 z-20 bg-white rounded-lg shadow-xl border border-slate-200 w-72 max-h-[70vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Data Provenance</h3>
+              <button
+                onClick={() => setShowProvenance(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Close provenance"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-3 space-y-3 text-xs text-slate-600">
+              <div>
+                <h4 className="font-semibold text-slate-700 mb-0.5">Boundary Data</h4>
+                <p>{PROVENANCE.boundaries.source}</p>
+                <p className="text-slate-400 mt-0.5">DOI: {PROVENANCE.boundaries.doi}</p>
+                <p className="text-slate-400">License: {PROVENANCE.boundaries.license} · {PROVENANCE.boundaries.year}</p>
+                <p className="text-amber-600 mt-0.5 italic">{PROVENANCE.boundaries.note}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-slate-700 mb-0.5">Voter Statistics</h4>
+                <p>{PROVENANCE.voters.total} registered voters across 22 Parliaments, 56 DUNs, 945 DMs.</p>
+                <p className="text-slate-400 mt-0.5">{PROVENANCE.voters.aggregation}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-slate-700 mb-0.5">Technology</h4>
+                <p>{PROVENANCE.tech.map} · {PROVENANCE.tech.framework}</p>
+                <p className="text-slate-400 mt-0.5">{PROVENANCE.tech.hosting}</p>
+                <p className="mt-1"><a href={PROVENANCE.tech.url} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">{PROVENANCE.tech.url}</a></p>
+              </div>
             </div>
           </div>
         )}

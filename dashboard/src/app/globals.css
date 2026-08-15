@@ -118,5 +118,28 @@
   }
   body {
     @apply bg-background text-foreground;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+}
+
+/* MapLibre popup overrides for mobile responsiveness */
+.maplibregl-popup {
+  max-width: 300px !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  padding: 0 !important;
+}
+
+.maplibregl-popup-content {
+  padding: 10px 12px !important;
+  border-radius: 8px !important;
+}
+
+@media (max-width: 768px) {
+  .maplibregl-popup {
+    max-width: calc(100vw - 40px) !important;
   }
 }

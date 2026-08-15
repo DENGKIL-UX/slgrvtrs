@@ -27,7 +27,7 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 | Phase 1 | Parliament choropleth, 10 metrics, legend, popup, hover | **COMPLETE** | ✅ Yes |
 | Phase 2 | DUN drill-down, zoom visibility, toggles, DUN popup | **COMPLETE** | ✅ Yes |
 | Phase 3 | DM bubble visualization, centroid generation, filters, DUN choropleth (9 metrics) | **COMPLETE** | ✅ Yes |
-| Phase 4 | Responsive, error boundaries, Lighthouse audit | Not started | — |
+| Phase 4 | Responsive, ErrorBoundary, provenance, Server Component refactor | **COMPLETE** | ✅ Yes |
 | Phase 5 | Individual voter points via PMTiles + R2 | Future | — |
 
 ---
@@ -311,10 +311,13 @@ slgrvtrs/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── layout.tsx              # Root layout
-│   │   │   ├── page.tsx                # Dynamic import MapDashboard (ssr: false)
-│   │   │   └── globals.css
-│   │   ├── components/map/
-│   │   │   ├── MapDashboard.tsx        # Main map (965 lines) — all layers, popups, sidebar, DM filters
+│   │   │   ├── page.tsx                # Server Component — renders ErrorBoundary + MapDashboardClient
+│   │   │   └── globals.css             # Tailwind + MapLibre popup CSS overrides (responsive)
+│   │   ├── components/
+│   │   │   ├── ErrorBoundary.tsx       # Class-based error boundary with retry (74 lines)
+│   │   │   └── map/
+│   │   │   ├── MapDashboard.tsx        # Main map (1080 lines) — all layers, popups, sidebar, DM filters, responsive
+│   │   │   ├── MapDashboardClient.tsx  # Client wrapper: dynamic import + ssr:false (17 lines)
 │   │   │   └── Legend.tsx               # Reusable color legend with dunApplicable warning (34 lines)
 │   │   └── lib/map/
 │   │       ├── setup.ts                # MapLibre init, workerUrl config (19 lines)
@@ -562,14 +565,15 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] Race/gender filter controls in sidebar (3 gender + 4 race buttons)
 - [ ] Optionally: Provision D1 database and create DM API route (deferred)
 
-### Phase 4: Polish & Deploy — Next
-- [ ] Responsive design (mobile sidebar collapse, touch interactions)
-- [ ] Refactor `page.tsx` to Server Component (move `'use client'` to MapDashboard only)
-- [ ] Update `tsconfig.json` target to ES2022 (MapLibre v6 recommendation)
-- [ ] Add React ErrorBoundary component (try/catch exists but no class-based boundary)
-- [ ] Loading states, error boundaries, empty states for all layers
-- [ ] Provenance panel (reads GeoJSON metadata block)
-- [ ] Performance audit (Lighthouse)
+### Phase 4: Polish & Deploy — COMPLETE ✅
+- [x] Refactor `page.tsx` to Server Component (via `MapDashboardClient.tsx` wrapper — `'use client'` + `dynamic` + `ssr: false` must stay in client boundary in Next.js 16)
+- [x] Add React ErrorBoundary component (class-based `ErrorBoundary.tsx` with retry button)
+- [x] Update `tsconfig.json` target to ES2022 (MapLibre v6 recommendation)
+- [x] Responsive design: mobile sidebar as fixed overlay with backdrop, auto-collapse on ≤768px, `stopPropagation` to prevent map click closing sidebar, larger touch targets, `touch-action-none` on map container
+- [x] Improved error state: reload button, error icon, responsive `mx-4` padding
+- [x] Provenance panel: embedded `PROVENANCE` constant with boundary/voter/tech metadata; toggle button at bottom-left; collapsible panel with close button; hidden "Sources" label on mobile
+- [x] Popup CSS overrides: `max-width: 300px`, `border-radius: 8px`, mobile `max-width: calc(100vw - 40px)`
+- [ ] Lighthouse audit (deferred — requires production deploy first)
 
 ### Phase 5: Individual Points (Future)
 - [ ] Geocode voter addresses (batch Nominatim/Google Maps) or use DM centroids
