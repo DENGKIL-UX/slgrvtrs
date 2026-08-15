@@ -585,8 +585,17 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] Popup CSS overrides: `max-width: 300px`, `border-radius: 8px`, mobile `max-width: calc(100vw - 40px)`
 - [ ] Lighthouse audit (deferred — requires production deploy first)
 
-### Phase 5: Individual Points (Future)
-- [ ] Geocode voter addresses (batch Nominatim/Google Maps) or use DM centroids
+### Phase 5A: DM Centroid Geocoding (Planned — see [`docs/PHASE5_DM_CENTROID_GEOCODING.md`](docs/PHASE5_DM_CENTROID_GEOCODING.md))
+- [ ] Create `geocode_cache` D1 table (migration `0005_geocode_cache.sql`)
+- [ ] Set `GOOGLE_GEOCODING_API_KEY` as Wrangler secret (user-provided at implementation)
+- [ ] Build `scripts/geocode_dm_batch.py` (Google primary 45 QPS → Nominatim fallback 1 QPS → D1 cache)
+- [ ] Implement `POST /api/geocode` (single DM geocode with cache-first → Google → Nominatim flow)
+- [ ] Implement `GET /api/geocode/status` (batch progress monitoring)
+- [ ] Run batch geocoding for all 945 DMs, update `dms.centroid_lng/centroid_lat` with real coordinates
+- [ ] Regenerate static `dm_centroids.geojson` fallback with geocoded coordinates
+- [ ] Validate: ≥85% resolution rate, 100% coordinates within Selangor bounds
+
+### Phase 5B: Individual Voter Points (Future)
 - [ ] Build tippecanoe pipeline → `voters.pmtiles`
 - [ ] Upload PMTiles to Cloudflare R2
 - [ ] Implement PMTiles protocol + voter point layer (Layer 4)
