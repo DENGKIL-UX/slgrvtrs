@@ -1,7 +1,8 @@
 # Cloudflare Deployment — Phase Compatibility Analysis
 
-> **Status**: Research scaffold.  
-> **Last updated**: 2026-08-15  
+> **Status**: Phase B (Workers) deployed and live.
+> **Last updated**: 2026-08-15
+> **Deployed URL**: https://slgrvtrs.ritz-analytics.workers.dev
 > **Conclusion**: All 5 phases are compatible with Cloudflare deployment. No architectural changes required.
 
 ---
@@ -99,10 +100,13 @@
 - Generate `dm.json` and `dm_centroids.geojson` (already in the Phase 3 plan)
 
 ### Changes needed for D1 approach
-- Add `wrangler.jsonc` with D1 binding
-- Add `open-next.config.ts`
-- Add `@opennextjs/cloudflare` to devDependencies
-- Add API route with `export const runtime = 'edge'`
+- Uncomment D1 binding in `wrangler.jsonc` (already scaffolded)
+- Add API route **without** `export const runtime = 'edge'` (see below)
+- Create D1 database: `npx wrangler d1 create slgrvtrs-voters`
+- Apply migrations: see `CLOUDFLARE_D1_DATABASE.md` §9
+
+> **CRITICAL**: Do NOT add `export const runtime = 'edge'` to API routes.
+> Workers are already edge. `runtime = 'edge'` causes **500 errors** on CF Workers.
 
 ### Verdict: Fully compatible. Static mode needs zero changes. D1 mode needs config additions only.
 
@@ -184,13 +188,17 @@
 
 If the project is currently running locally with `output: "standalone"`, the migration requires one critical change:
 
-### Step 0: Fix `next.config.ts` (BLOCKER)
+### Step 0: Fix `next.config.ts` — DONE
 
-The current config has `output: "standalone"` which is **incompatible** with OpenNext. This must be removed before any Cloudflare deployment. See `CLOUDFLARE_DEPLOYMENT.md` §11 for the exact diff.
+The `output: "standalone"` was **removed** and `images: { unoptimized: true }` was added.
+This was completed as CF-00. See `CLOUDFLARE_DEPLOYMENT.md` §12 for the confirmed rules.
 
-### Step 1: Add Cloudflare deployment config (optional for Phase 1-2)
+### Step 1: Cloudflare deployment config — DONE
 
-For pure static deployment, no config changes needed. Just connect the repo to Cloudflare Pages.
+All config files are deployed and working:
+- `wrangler.jsonc`, `open-next.config.ts`, `.cloudflareignore` in repo
+- `@opennextjs/cloudflare` 1.20.1 + `wrangler` 4.112.0 in devDependencies
+- CF dashboard: Root=`dashboard`, Build=`npm run build:cf`, Deploy=`npm run deploy`
 
 ### Step 2: Add D1 (Phase 3+)
 
@@ -218,8 +226,8 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 
 **All 5 phases are fully compatible with Cloudflare deployment on the free tier.**
 
-- Phase 1-2: **Zero changes** — deploy as static site today
-- Phase 3: **Zero changes** for static mode; config additions for D1 mode
+- Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
+- Phase 3: **Zero changes** for static mode; uncomment D1 binding + add API routes for D1 mode
 - Phase 4: Cloudflare is the **intended deployment target**
 - Phase 5: R2 + PMTiles is the **standard pattern** for this use case
 
