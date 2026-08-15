@@ -5,7 +5,7 @@ import { Map, Popup, NavigationControl, AttributionControl, LngLatBounds, type F
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMapLibre } from '@/lib/map/setup';
 import { joinStatsToGeoJSON, type StatsMap, type ParliamentStats } from '@/lib/map/join-stats';
-import { buildColorExpression, getScaleById, COLOR_SCALES, type ColorScale } from '@/lib/map/color-scales';
+import { buildColorExpression, getScaleById, getDunScaleById, COLOR_SCALES, DUN_COLOR_SCALES, type ColorScale } from '@/lib/map/color-scales';
 import Legend from '@/components/map/Legend';
 
 // ============================================================
@@ -395,7 +395,7 @@ export default function MapDashboard() {
           map.addLayer({
             id: 'dun-fill', type: 'fill', source: 'dun', minzoom: 8.5,
             paint: {
-              'fill-color': '#b2dfdb',
+              'fill-color': buildColorExpression('total_voters', DUN_COLOR_SCALES[0].stops),
               'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.75, 0.5],
             },
           });
@@ -642,14 +642,37 @@ export default function MapDashboard() {
   const updateMetric = useCallback((metricId: string) => {
     const map = mapRef.current;
     if (!map) return;
-    const scale = getScaleById(metricId);
-    const colorExpr = buildColorExpression(scale.property, scale.stops);
-    map.setPaintProperty('parliament-fill', 'fill-color', colorExpr);
+
+    // Parliament layer — always update
+    const parlScale = getScaleById(metricId);
+    const parlExpr = buildColorExpression(parlScale.property, parlScale.stops);
+    map.setPaintProperty('parliament-fill', 'fill-color', parlExpr);
+
+    // DUN layer — update if metric is DUN-applicable
+    const dunScale = getDunScaleById(metricId);
+    if (dunScale) {
+      const dunExpr = buildColorExpression(dunScale.property, dunScale.stops);
+      map.setPaintProperty('dun-fill', 'fill-color', dunExpr);
+    }
   }, []);
 
   useEffect(() => { updateMetric(activeMetric); }, [activeMetric, updateMetric]);
 
-  const currentScale = getScaleById(activeMetric);
+  // Track zoom to switch legend between Parliament/DUN scales
+  const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const onZoom = () => setMapZoom(map.getZoom());
+    map.on('zoom', onZoom);
+    return () => { map.off('zoom', onZoom); };
+  }, []);
+
+  // Use DUN legend labels when zoomed into DUN level (>= 9.5)
+  const isDunZoom = mapZoom >= 9.5;
+  const currentScale = isDunZoom
+    ? (getDunScaleById(activeMetric) ?? getScaleById(activeMetric))
+    : getScaleById(activeMetric);
 
   return (
     <div className="relative w-full h-screen flex overflow-hidden bg-slate-100">
