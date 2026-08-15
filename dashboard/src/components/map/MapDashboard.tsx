@@ -143,7 +143,7 @@ const MAX_ZOOM = 18;
 const DEFAULT_LAYERS: LayerVisibility = {
   parliament: true,
   dun: true,
-  dm: false,
+  dm: true,
 };
 
 // All layer IDs per group for visibility toggling
