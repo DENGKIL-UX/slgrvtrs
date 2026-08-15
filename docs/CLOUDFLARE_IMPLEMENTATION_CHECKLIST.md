@@ -1,6 +1,6 @@
 # Cloudflare Implementation Checklist — SLGRVTRS
 
-> **Status**: Actionable task list for deploying SLGRVTRS to Cloudflare.  
+> **Status**: Phase B in progress — CF-00 through CF-15 DONE.  
 > **Last updated**: 2026-08-15  
 > **Reference**: `CLOUDFLARE_DEPLOYMENT.md`, `CLOUDFLARE_D1_DATABASE.md`, `CLOUDFLARE_PHASE_COMPATIBILITY.md`  
 > **Pattern source**: `DENGKIL-UX/pip-melaka` (verified working deployment)
@@ -9,7 +9,7 @@
 
 ## Pre-Flight: Critical Fix Required
 
-### [ ] CF-00: Remove `output: "standalone"` from `next.config.ts`
+### [x] CF-00: Remove `output: "standalone"` from `next.config.ts`
 
 **Blocker.** The current `next.config.ts` has `output: "standalone"` which is **incompatible** with `@opennextjs/cloudflare`. The pip-melaka repo explicitly documents: "NO `output: 'standalone'` — OpenNext handles bundling."
 
@@ -72,18 +72,18 @@ Also need to:
 > Upgrade from static to Workers when D1 queries are needed.
 > Requires `@opennextjs/cloudflare`.
 
-### [ ] CF-10: Fix `next.config.ts` (prerequisite)
+### [x] CF-10: Fix `next.config.ts` (prerequisite)
 
-See CF-00 above. Must be done first.
+See CF-00 above. Done — removed `output: 'standalone'`, added `images: { unoptimized: true }`.
 
-### [ ] CF-11: Install Cloudflare Dependencies
+### [x] CF-11: Install Cloudflare Dependencies
 
 ```bash
 cd dashboard
 npm install -D @opennextjs/cloudflare wrangler
 ```
 
-### [ ] CF-12: Verify Config Files
+### [x] CF-12: Verify Config Files
 
 The following files are already scaffolded in the repo:
 - `dashboard/wrangler.jsonc` — Worker config (D1/R2 bindings commented out)
@@ -91,7 +91,7 @@ The following files are already scaffolded in the repo:
 - `dashboard/.cloudflareignore` — deployment exclusions
 - `dashboard/.dev.vars.example` — secrets template
 
-### [ ] CF-13: Update `package.json` Scripts
+### [x] CF-13: Update `package.json` Scripts
 
 ```json
 {
@@ -111,7 +111,9 @@ Change from:
 To:
 - Build command: `npm run build:cf`
 
-### [ ] CF-15: Verify Worker Bundle Size
+### [x] CF-15: Verify Worker Bundle Size
+
+**Result**: Worker = 746 bytes gzip (limit: 3 MB). Assets = 6 MB. Build clean.
 
 ```bash
 npm run build:cf
@@ -147,14 +149,14 @@ npx wrangler d1 create slgrvtrs-voters
 npx wrangler d1 execute slgrvtrs-voters --remote --file=./migrations/0001_analytics_warehouse.sql
 ```
 
-### [ ] CF-22: Generate Data Load SQL from Existing JSON
+### [x] CF-22: Generate Data Load SQL from Existing JSON
+
+**Done** via `scripts/build_d1_load.py`:
+- `migrations/0002_load_parliaments.sql` — 22 INSERT OR REPLACE statements
+- `migrations/0003_load_duns.sql` — 56 INSERT OR REPLACE statements
 
 ```bash
-# Parliament stats (22 rows)
-python3 scripts/build_d1_parl_load.py --input=public/stats/parliament.json --output=migrations/0002_load_parliaments.sql
-
-# DUN stats (56 rows)
-python3 scripts/build_d1_dun_load.py --input=public/stats/dun.json --output=migrations/0003_load_duns.sql
+python3 scripts/build_d1_load.py
 ```
 
 ### [ ] CF-23: Load Pre-Aggregated Stats

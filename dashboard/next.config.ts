@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
-  /* config options here */
+  // NO output: 'standalone' — OpenNext handles bundling for Cloudflare Workers
+  // See: CLOUDFLARE_DEPLOYMENT.md §11, pip-melaka reference
+  images: { unoptimized: true },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   reactStrictMode: false,
 };
