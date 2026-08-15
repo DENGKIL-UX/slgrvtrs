@@ -389,11 +389,15 @@ GROUP BY gender;
 
 ### 8.2 API Route Example (Phase 3)
 
+**CRITICAL**: From pip-melaka research — do NOT use `export const runtime = 'edge'`.
+Cloudflare Workers already run on the edge. The `nodejs_compat` flag in `wrangler.jsonc`
+handles Node.js compatibility. Using `runtime = 'edge'` causes a 500 error in production.
+
 ```typescript
 // src/app/api/dms/route.ts
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
+// NO "export const runtime = 'edge'" — Workers are already edge
 
 interface Env {
   DB: D1Database;
@@ -468,3 +472,26 @@ export interface ParliamentRow {
 | D1 query latency | Adds ~10-50ms to API routes | Acceptable for dashboard use; pre-aggregated tables minimize queries |
 | Worker 10ms CPU limit | Complex queries might hit this | D1 query time does NOT count toward Worker CPU; only request/response overhead |
 | Database deletion after 90 days inactivity | Data loss | Free tier databases persist as long as account is active and any read happens |
+
+---
+
+## 11. Hard "Do NOT Do This on Free Tier" List
+
+> Extracted from pip-melaka's `CLOUDFLARE-FREE-TIER-ARCHITECTURE.md` — battle-tested rules.
+
+These patterns run hot paths over the 10ms CPU budget, the 50 subrequest cap, the 128MB memory cap, or all three. They **must** run offline (developer laptop, CI):
+
+- [ ] Parse the full 3.9M-row voter dataset inside a Worker request
+- [ ] Build any spatial aggregates (H3, grids) in-request
+- [ ] Generate MVT tiles in-request
+- [ ] Join 22 Parliaments x 56 DUNs x 945 DMs x N segments on the Worker
+- [ ] Load large JSONL/GeoJSON from `public/` at request time (use build-time imports only)
+- [ ] Bulk `INSERT` rows into D1 one row at a time from a Worker (use `wrangler d1 import` offline)
+
+### Approved hot path (from pip-melaka pattern)
+
+Every Worker request must:
+1. Return in **<= 10ms CPU** (validation -> 1-2 indexed D1 prepared statements -> JSON serialize)
+2. Use **<= 5 subrequests** (<= 2 D1, <= 1 R2 GET, <= 1 cache lookup)
+3. Never hold more than ~2MB in memory
+4. Use prepared statements with parameterized binds (`.bind(param)`), never string interpolation

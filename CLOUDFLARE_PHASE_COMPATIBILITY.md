@@ -180,9 +180,13 @@
 
 ---
 
-## Migration Path: Vercel → Cloudflare
+## Migration Path: Vercel/Local → Cloudflare
 
-If the project is currently on Vercel (as Phase 4 suggests), the migration is:
+If the project is currently running locally with `output: "standalone"`, the migration requires one critical change:
+
+### Step 0: Fix `next.config.ts` (BLOCKER)
+
+The current config has `output: "standalone"` which is **incompatible** with OpenNext. This must be removed before any Cloudflare deployment. See `CLOUDFLARE_DEPLOYMENT.md` §11 for the exact diff.
 
 ### Step 1: Add Cloudflare deployment config (optional for Phase 1-2)
 
@@ -194,7 +198,7 @@ For pure static deployment, no config changes needed. Just connect the repo to C
 npm install -D @opennextjs/cloudflare wrangler
 ```
 
-Create `wrangler.jsonc` and `open-next.config.ts` following the pip-melaka pattern.
+Create `wrangler.jsonc` and `open-next.config.ts` following the pip-melaka pattern. Both are already scaffolded in the repo.
 
 ### Step 3: Add R2 (Phase 5)
 

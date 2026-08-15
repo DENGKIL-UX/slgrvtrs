@@ -1,0 +1,40 @@
+{
+  // Cloudflare Worker configuration for SLGRVTRS
+  // Generated from pip-melaka reference pattern (DENGKIL-UX/pip-melaka)
+  //
+  // USAGE: This file is needed ONLY when using @opennextjs/cloudflare (Phase 3+ API routes).
+  //        For Phase 1-2 static deployment, this file can remain but is not required.
+  //
+  // See: docs/CLOUDFLARE_DEPLOYMENT.md §4.1 vs §4.2
+
+  "name": "slgrvtrs",
+  "compatibility_date": "2025-07-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": ".open-next/worker.js",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // D1 database binding — uncomment when D1 is provisioned (Phase 3+)
+  // Create with: npx wrangler d1 create slgrvtrs-voters
+  // Then paste the database_id below:
+  //
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "slgrvtrs-voters",
+  //     "database_id": "<YOUR_DATABASE_ID>"
+  //   }
+  // ]
+
+  // R2 bucket binding — uncomment when R2 is provisioned (Phase 5 PMTiles)
+  // Create with: npx wrangler r2 bucket create slgrvtrs-tiles
+  //
+  // "r2_buckets": [
+  //   {
+  //     "binding": "TILES",
+  //     "bucket_name": "slgrvtrs-tiles"
+  //   }
+  // ]
+}

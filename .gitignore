@@ -22,3 +22,11 @@ dashboard/.next/
 dashboard/next-env.d.ts
 dashboard/tsconfig.tsbuildinfo
 *.log
+
+# Cloudflare
+.dev.vars
+.wrangler/
+.open-next/
+dashboard/.dev.vars
+dashboard/.wrangler/
+dashboard/.open-next/

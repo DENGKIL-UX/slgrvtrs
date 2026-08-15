@@ -377,4 +377,54 @@ npx wrangler pages deploy .next --project-name=slgrvtrs
 | Phase 4 (polish) | **$0** | No additional infra |
 | Phase 5 (PMTiles) | **$0** | R2 free tier: 10 GB storage, Class A: 1M req/month, Class B: 10M req/month |
 
-**Total projected cost: $0/month for all 5 phases on the free tier.**
+## 11. Critical `next.config.ts` Changes Required (from pip-melaka research)
+
+The current `dashboard/next.config.ts` has `output: "standalone"` which is **incompatible** with Cloudflare Workers. The pip-melaka repo explicitly documents this as a critical rule:
+
+> **NO `output: "standalone"`** — OpenNext handles bundling
+
+### Required changes:
+
+```diff
+  const nextConfig: NextConfig = {
+-   output: "standalone",
++   // NO output: 'standalone' — OpenNext handles bundling for Cloudflare Workers
++   images: { unoptimized: true },  // CF Workers have no Image Optimization API
+    typescript: {
+-     ignoreBuildErrors: true,
++     ignoreBuildErrors: false,     // Match pip-melaka: catch errors at build time
+    },
+    reactStrictMode: false,
+  };
+```
+
+### Also fix `package.json` build script:
+
+The current build script copies files for `standalone` mode:
+
+```diff
+- "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
++ "build": "next build",
+```
+
+### Why this matters:
+
+- `output: "standalone"` generates a self-contained Node.js server (`.next/standalone/server.js`)
+- OpenNext needs the standard `.next/` output to transform it into a Worker bundle
+- With `standalone`, OpenNext either fails or produces a broken bundle
+- `images: { unoptimized: true }` is required because Cloudflare Workers do not have Next.js Image Optimization
+
+---
+
+## 12. Files Already Scaffolded in Repo
+
+The following implementation files have been created based on pip-melaka patterns:
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `dashboard/wrangler.jsonc` | Worker config (D1/R2 commented out) | Ready |
+| `dashboard/open-next.config.ts` | OpenNext adapter config | Ready |
+| `dashboard/.cloudflareignore` | Deployment exclusions | Ready |
+| `dashboard/.dev.vars.example` | Local dev secrets template | Ready |
+| `dashboard/migrations/0001_analytics_warehouse.sql` | D1 schema (parliaments, duns, dms) | Ready |
+| `docs/CLOUDFLARE_IMPLEMENTATION_CHECKLIST.md` | Ordered task list | Ready |
