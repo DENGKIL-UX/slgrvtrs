@@ -126,11 +126,11 @@ const PARLIAMENT_LAYER_IDS = ['parliament-fill', 'parliament-label', 'parliament
 const DUN_LAYER_IDS = ['dun-fill', 'dun-border', 'dun-label'];
 const DM_LAYER_IDS = ['dm-bubble', 'dm-bubble-border'];
 
-// DM bubble sizing: sqrt scaling for area-proportional circles
-const DM_MIN_RADIUS = 3;
+// DM bubble sizing: proportional circles for demographic counts
+const DM_MIN_RADIUS = 2;
 const DM_MAX_RADIUS = 20;
-const DM_MIN_VOTERS = 2000;
-const DM_MAX_VOTERS = 15000;
+const DM_MIN_VOTERS = 0;
+const DM_MAX_VOTERS = 9500;
 
 // ============================================================
 // Component
@@ -203,7 +203,7 @@ export default function MapDashboard() {
     popupRef.current?.remove();
   }, []);
 
-  // ------- Apply DM filter to bubble layer -------
+  // ------- Apply DM filter: update bubble SIZE not visibility -------
   const applyDmFilter = useCallback(() => {
     const map = mapRef.current;
     if (!map || !map.getLayer('dm-bubble')) return;
@@ -211,40 +211,55 @@ export default function MapDashboard() {
     const gf = genderFilterRef.current;
     const rf = raceFilterRef.current;
 
-    // Build filter: combine gender + race
-    const filters: any[] = [];
+    // Always clear any filter — all 945 bubbles stay visible
+    map.setFilter('dm-bubble', null);
+    map.setFilter('dm-bubble-border', null);
+
+    // Build the data expression for the selected demographic
+    let dataExpr: any[];
 
     if (gf === 'all' && rf === 'all') {
-      map.setFilter('dm-bubble', null);
-      map.setFilter('dm-bubble-border', null);
-      return;
+      dataExpr = ['get', 'total_voters'];
+    } else if (gf === 'all' && rf !== 'all') {
+      // Race only: male_{race} + female_{race}
+      dataExpr = [
+        '+',
+        ['get', `male_${rf}`],
+        ['get', `female_${rf}`],
+      ];
+    } else if (gf !== 'all' && rf === 'all') {
+      // Gender only: sum all 4 sub-counts for that gender
+      const prefix = gf === 'male' ? 'male' : 'female';
+      dataExpr = [
+        '+',
+        ['get', `${prefix}_malay`],
+        ['get', `${prefix}_chinese`],
+        ['get', `${prefix}_indian`],
+        ['get', `${prefix}_other`],
+      ];
+    } else {
+      // Both gender + race: single field
+      dataExpr = ['get', `${gf}_${rf}`];
     }
 
-    if (gf !== 'all') {
-      // For 'male': male_malay + male_chinese + male_indian + male_other > 0
-      // For 'female': female_malay + female_chinese + female_indian + female_other > 0
-      // Simpler: just check male_pct > 50 or female_pct > 50? No, use sub-counts.
-      // Use ['>', ['+', ...subcount fields], 0]
-      const fields = gf === 'male'
-        ? ['male_malay', 'male_chinese', 'male_indian', 'male_other']
-        : ['female_malay', 'female_chinese', 'female_indian', 'female_other'];
-      const sumExpr = ['+', ['get', fields[0]], ['get', fields[1]], ['get', fields[2]], ['get', fields[3]]];
-      filters.push(['>', sumExpr, 0]);
-    }
+    // Update circle-radius for the selected demographic
+    const radiusExpr = [
+      'interpolate', ['linear'], dataExpr,
+      DM_MIN_VOTERS, DM_MIN_RADIUS,
+      DM_MAX_VOTERS, DM_MAX_RADIUS,
+    ];
+    map.setPaintProperty('dm-bubble', 'circle-radius', radiusExpr as any);
 
-    if (rf !== 'all') {
-      // For 'malay': male_malay + female_malay > 0
-      const mField = `male_${rf}`;
-      const fField = `female_${rf}`;
-      filters.push(['>', ['+', ['get', mField], ['get', fField]], 0]);
-    }
-
-    const combined = filters.length === 1
-      ? filters[0]
-      : ['all', ...filters];
-
-    map.setFilter('dm-bubble', combined as FilterSpecification);
-    map.setFilter('dm-bubble-border', combined as FilterSpecification);
+    // Update border layer radius (base + 2)
+    const borderRadiusExpr = [
+      '+',
+      ['interpolate', ['linear'], dataExpr,
+        DM_MIN_VOTERS, DM_MIN_RADIUS,
+        DM_MAX_VOTERS, DM_MAX_RADIUS,
+      ],
+      2,
+    ];
+    map.setPaintProperty('dm-bubble-border', 'circle-radius', borderRadiusExpr as any);
   }, []);
 
   // Apply filter when it changes
@@ -555,13 +570,29 @@ export default function MapDashboard() {
               map.setFeatureState({ source: 'dm', id: dmCode }, { hover: true });
               map.getCanvas().style.cursor = 'pointer';
 
-              // Build tooltip HTML
+              // Build tooltip HTML — reflect active filter
               const dmName = dmCode.replace(/^[\d.]+\s*/, '');
+              const gFilter = genderFilterRef.current;
+              const rFilter = raceFilterRef.current;
+              let tooltipCount: number;
+              if (gFilter === 'all' && rFilter === 'all') {
+                tooltipCount = props.total_voters;
+              } else if (gFilter === 'all' && rFilter !== 'all') {
+                tooltipCount = (props as any)[`male_${rFilter}`] + (props as any)[`female_${rFilter}`];
+              } else if (gFilter !== 'all' && rFilter === 'all') {
+                const p = gFilter === 'male' ? 'male' : 'female';
+                tooltipCount = (props as any)[`${p}_malay`] + (props as any)[`${p}_chinese`] + (props as any)[`${p}_indian`] + (props as any)[`${p}_other`];
+              } else {
+                tooltipCount = (props as any)[`${gFilter}_${rFilter}`];
+              }
+              const filterLabel = gFilter === 'all' && rFilter === 'all'
+                ? 'voters'
+                : `${gFilter === 'all' ? '' : gFilter + ' '}${rFilter === 'all' ? '' : rFilter} voters`.trim();
               const tooltipHTML = `
                 <div style="font-family:system-ui,sans-serif;padding:6px 8px;">
                   <div style="font-weight:600;font-size:12px;color:#0f172a;">${dmName}</div>
                   <div style="font-size:11px;color:#64748b;margin-top:2px;">
-                    ${props.total_voters.toLocaleString()} voters
+                    ${tooltipCount.toLocaleString()} ${filterLabel}
                   </div>
                 </div>
               `;
