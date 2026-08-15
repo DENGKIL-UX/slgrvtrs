@@ -1,7 +1,7 @@
 # Phase 5A: DM Centroid Geocoding — Implementation Plan
 
-**Phase**: 5A (Precursor to Phase 5B: Individual Voter Points)
-**Status**: Planned — Not Yet Started
+**Phase**: 5A — DM Centroid Geocoding
+**Status**: COMPLETE
 **Created**: 2026-08-15
 **Depends On**: Phase 3b (D1 Database) — **COMPLETE**
 **Blocks**: Phase 5B (PMTiles pipeline, R2 upload, voter point layer)
@@ -1293,3 +1293,43 @@ export async function POST(request: Request) {
 ---
 
 **End of Phase 5A Implementation Plan**
+
+---
+
+## Implementation Results (2026-08-15)
+
+### Batch Geocoding
+
+| Metric | Result |
+|--------|--------|
+| **Total DMs** | 945 |
+| **Resolved** | 945 (100%) |
+| **Exact matches** | 111 |
+| **Locality matches** | 834 |
+| **Unresolved** | 0 |
+| **Cost** | $0 (Nominatim-only fallback covered all) |
+| **Cache hit rate** | 100% on re-runs |
+
+### Boundary Validation (Post-Geocoding)
+
+Point-in-polygon analysis revealed 142 DMs (15%) falling outside their parent DUN polygon boundary.
+
+| Metric | Result |
+|--------|--------|
+| **DMs inside DUN** | 803 (85.0%) |
+| **DMs outside DUN** | 142 (15.0%) |
+| **Affected DUNs** | 39 of 56 |
+
+### Fix Applied
+
+| Fix Method | Count |
+|-----------|-------|
+| Snapped to boundary + inward offset | 88 |
+| DUN centroid fallback | 34 |
+| Larger offset needed (concave polygons) | 20 |
+
+Two DMs (Kampung Jawa, Bandar Baru Ampang) required special interior-point search for concave polygon edge cases.
+
+### Final Verification
+
+945/945 DMs verified inside parent DUN boundaries after all fixes.

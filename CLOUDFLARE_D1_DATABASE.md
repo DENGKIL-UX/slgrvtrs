@@ -5,6 +5,7 @@
 > **Database**: `slgrvtrs-voters` (ID: `59afb76e-a3a2-4e2a-b18d-857f9f5704fb`, region APAC)
 > **Binding**: `env.DB` in `wrangler.jsonc`
 > **See**: `docs/PHASE3_D1_DATABASE_IMPLEMENTATION.md` for implementation plan (completed)
+> **Phase 5A**: geocode_cache table added, 945 DM centroid coordinates populated via Google Maps / Nominatim geocoding.
 
 ---
 
@@ -207,6 +208,23 @@ CREATE INDEX idx_voters_gender ON voters(gender);
 CREATE INDEX idx_voters_race ON voters(race);
 CREATE INDEX idx_dms_dun ON dms(dun_code);
 CREATE INDEX idx_dms_parl ON dms(code_parlimen);
+
+-- Geocode cache for DM centroid lookups (Phase 5A)
+CREATE TABLE geocode_cache (
+  query_hash TEXT PRIMARY KEY,  -- SHA-256 hash of normalized query string
+  dm_code   TEXT NOT NULL,
+  lat       REAL NOT NULL,
+  lng       REAL NOT NULL,
+  accuracy_level TEXT NOT NULL CHECK(accuracy_level IN ('exact', 'locality', 'admin', 'country')),
+  source    TEXT NOT NULL CHECK(source IN ('google', 'nominatim', 'cache')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  hit_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_geocode_cache_dm ON geocode_cache(dm_code);
+CREATE INDEX idx_geocode_cache_source ON geocode_cache(source);
+CREATE INDEX idx_geocode_cache_accuracy ON geocode_cache(accuracy_level);
+CREATE INDEX idx_geocode_cache_created ON geocode_cache(created_at);
 ```
 
 ### 4.3 Design Decisions

@@ -15,7 +15,8 @@
 | **Phase 2** | DUN drill-down + toggles | Yes | Static Pages | None | None |
 | **Phase 3** | DM bubble visualization, DUN choropleth (9 metrics), race/gender filters, D1 database, DM API routes | Yes | Static + D1 | D1 provisioned with 945 DMs, 3 API routes, frontend fallback | None |
 | **Phase 4** | Polish & deploy — responsive, ErrorBoundary, provenance, Server Component | Yes | Static Pages + Workers | None | None |
-| **Phase 5** | Individual voter points (PMTiles) | Yes | Static + R2 | Add R2 for PMTiles | Low |
+| **Phase 5A** | DM centroid geocoding, boundary validation | Yes | Workers + D1 | geocode_cache table, 2 API routes, batch validation scripts | None |
+| **Phase 5B** | Individual voter points (PMTiles) | Yes | Workers + R2 | Add R2 for PMTiles | Low |
 
 ---
 
@@ -234,6 +235,7 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
 - Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters (all static, zero CF changes needed)
 - Phase 4: **DEPLOYED** — responsive design, ErrorBoundary, provenance panel, Server Component refactor, ES2022 target
-- Phase 5: R2 + PMTiles is the **standard pattern** for this use case
+- Phase 5A: **DEPLOYED** — 945 DMs geocoded (Google + Nominatim), boundary validation (142 DMs corrected), geocode_cache in D1, 2 API routes
+- Phase 5B: R2 + PMTiles is the **standard pattern** for this use case
 
 The `pip-melaka` repo proves the pattern works — same org, same developer, same stack (Next.js 16 + OpenNext + Wrangler + D1), already deployed to Cloudflare.

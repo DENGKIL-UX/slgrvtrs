@@ -1,6 +1,6 @@
 # Phase 3 Optional: D1 Database & DM API Route
 
-> **Status:** Deferred from Phase 3 — Implementation plan for provisioning Cloudflare D1, loading DM data, and exposing an API route to replace the static `dm_centroids.geojson` fetch.
+> **Status:** COMPLETE — D1 database provisioned, data loaded, 3 API routes deployed, frontend integrated. See CLOUDFLARE_IMPLEMENTATION_CHECKLIST.md Phase C for task tracking.
 
 ---
 

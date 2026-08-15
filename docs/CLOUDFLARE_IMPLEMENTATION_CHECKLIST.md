@@ -246,19 +246,50 @@ Migration `0001b_add_dm_crosstab.sql` adds `dun_prefix` + 8 gender×race columns
 
 ---
 
-## Phase D: R2 Storage (Phase 5 PMTiles)
+## Phase 5A: DM Geocoding + Boundary Validation
 
-### [ ] CF-30: Create R2 Bucket
+> **COMPLETE.** All tasks done. 945/945 DMs geocoded, 142 boundary corrections applied.
+
+### [x] CF-30: Create geocode_cache D1 Table
+
+Migration `0005_geocode_cache.sql` applied. Table stores SHA-256 hashed query → coordinate results.
+
+### [x] CF-31: Build Batch Geocoder
+
+`scripts/geocode_dm_batch.py` — Google Maps API (40 QPS) → Nominatim fallback (1 QPS) → D1 cache. 945/945 resolved, $0 cost.
+
+### [x] CF-32: Implement Geocode API Routes
+
+- `POST /api/geocode` — single DM geocode (cache-first → Google → Nominatim)
+- `GET /api/geocode/status` — batch geocoding stats
+
+### [x] CF-33: Run Batch Geocoding
+
+945/945 DMs resolved: 111 exact + 834 locality matches. All coordinates written to `dms.centroid_lng/centroid_lat`.
+
+### [x] CF-34: Point-in-Polygon Boundary Validation
+
+`scripts/pip_analysis.py` found 142/945 DMs (15%) outside parent DUN boundary. Worst DUNs: N.41 (13), N.22 (10), N.32 (9).
+
+### [x] CF-35: Fix Out-of-Bounds DMs
+
+`scripts/fix_dm_boundaries.py` + `fix_remaining.py`: 88 snapped to boundary, 34 DUN centroid fallback, 20 larger offset. Final: 945/945 inside. Static `dm_centroids.geojson` regenerated.
+
+---
+
+## Phase D: R2 Storage (Phase 5B PMTiles)
+
+### [ ] CF-40: Create R2 Bucket
 
 ```bash
 npx wrangler r2 bucket create slgrvtrs-tiles
 ```
 
-### [ ] CF-31: Uncomment R2 Binding in wrangler.jsonc
+### [ ] CF-41: Uncomment R2 Binding in wrangler.jsonc
 
 Remove the comments around `r2_buckets` in `wrangler.jsonc`.
 
-### [ ] CF-32: Upload PMTiles
+### [ ] CF-42: Upload PMTiles
 
 ```bash
 npx wrangler r2 object put slgrvtrs-tiles/voters.pmtiles --file=./artifacts/voters.pmtiles
@@ -268,7 +299,7 @@ npx wrangler r2 object put slgrvtrs-tiles/voters.pmtiles --file=./artifacts/vote
 
 ## Phase E: CI/CD (Optional)
 
-### [ ] CF-40: Add Cloudflare Build to CI
+### [ ] CF-50: Add Cloudflare Build to CI
 
 Add to `.github/workflows/ci.yml`:
 
@@ -277,7 +308,7 @@ Add to `.github/workflows/ci.yml`:
   run: npx @opennextjs/cloudflare build
 ```
 
-### [ ] CF-41: Add Deploy on Push to Main (Optional)
+### [ ] CF-51: Add Deploy on Push to Main (Optional)
 
 Already configured via CF dashboard Git integration. Pushes to `main` auto-deploy.
 
@@ -289,9 +320,10 @@ Already configured via CF dashboard Git integration. Pushes to `main` auto-deplo
 CF-00 (fix next.config.ts) ✅
   ├── CF-01..04 (Static deploy — SKIPPED, went straight to Workers)
   └── CF-10..19a (Workers deploy + post-deploy fixes + choropleth audit — COMPLETE ✅)
-        └── CF-20..25 (D1 database — ready, not started)
-              └── CF-30..32 (R2 storage — future)
-                    └── CF-40..41 (CI/CD — optional)
+        └── CF-20..28 (D1 database — COMPLETE ✅)
+              └── CF-30..35 (Geocoding + boundary validation — COMPLETE ✅)
+                    └── CF-40..42 (R2 storage — future)
+                          └── CF-50..51 (CI/CD — optional)
 ```
 
 ## Progress Summary
@@ -302,5 +334,6 @@ CF-00 (fix next.config.ts) ✅
 | A: Static | CF-01..04 | **SKIPPED** | Went straight to Workers |
 | B: Workers | CF-10..20 | **DONE** | Live at workers.dev; DM bubble filter bugs fixed; choropleth metric audit complete |
 | C: D1 | CF-20..28 | **DONE** | DB provisioned, 1023 rows loaded, 3 API routes live, frontend integrated |
-| D: R2 | CF-30..32 | **Future** | Needs PMTiles build first |
-| E: CI/CD | CF-40..41 | **Optional** | Git integration already auto-deploys |
+| 5A: Geocode | CF-30..35 | **DONE** | 945/945 DMs geocoded, boundary validation (142 fixed), 945/945 inside DUN |
+| D: R2 | CF-40..42 | **Future** | Needs PMTiles build first (Phase 5B) |
+| E: CI/CD | CF-50..51 | **Optional** | Git integration already auto-deploys |

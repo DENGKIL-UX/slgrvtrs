@@ -163,7 +163,7 @@ Excludes `data/`, `analysis/`, `scripts/`, `*.md`, `docs/`, `.git/`, `node_modul
 | Next.js JS chunks | ~2.5 MB | `.open-next/assets/_next/static/` |
 | **Total deployed** | **48 files, ~5.2 MB** (827 KB gzip) | |
 
-### 3.3 D1 Free Tier (Phase 3+, not yet provisioned)
+### 3.3 D1 Free Tier (Phase 3b, provisioned)
 
 | Resource | Free Limit |
 |----------|-----------|
@@ -247,7 +247,7 @@ dashboard/public/
 └── maplibre-gl-shared.mjs            # MapLibre shared helpers (ESM)
 ```
 
-### 5.3 D1 Migration Files (Phase 3, ready but not yet applied)
+### 5.3 D1 Migration Files (Phase 3b, applied)
 
 | File | Purpose | Status |
 |------|---------|--------|
@@ -395,7 +395,7 @@ Total: 48 files
 ```
 Binding            Resource
 env.ASSETS         Assets
-env.DB              D1 Database (slgrvtrs-voters, 1023 rows: 22 parliaments + 56 DUNs + 945 DMs)
+env.DB              D1 Database (slgrvtrs-voters, 22 parl + 56 DUNs + 945 DMs + geocode_cache)
 ```
 
 D1 binding active since Phase 3b. R2 binding planned for Phase 5.
@@ -408,6 +408,21 @@ Route (app)
 └ ○ /_not-found
 
 ○  (Static)  prerendered as static content
+```
+
+### 9.6 API Routes
+
+```
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /api/dm               (D1: list/search DMs as GeoJSON or JSON)
+├ ○ /api/dm/[code]        (D1: single DM lookup)
+├ ○ /api/dm/search        (D1: name autocomplete)
+├ ○ /api/geocode           (POST: single DM geocode, cache → Google → Nominatim)
+└ ○ /api/geocode/status    (GET: geocoding batch stats)
+
+○  (Static or Server Function)  All above serve from Worker
 ```
 
 ---

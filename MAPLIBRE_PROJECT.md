@@ -29,7 +29,8 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 | Phase 3 | DM bubble visualization, centroid generation, filters, DUN choropleth (9 metrics) | **COMPLETE** | ✅ Yes |
 | Phase 3b | D1 database provisioning, DM API routes, frontend D1 integration | **COMPLETE** | ✅ Yes |
 | Phase 4 | Responsive, ErrorBoundary, provenance, Server Component refactor | **COMPLETE** | ✅ Yes |
-| Phase 5 | Individual voter points via PMTiles + R2 | Future | — |
+| Phase 5A | DM centroid geocoding (Google Maps → Nominatim → D1 cache), boundary validation | **COMPLETE** | ✅ Yes |
+| Phase 5B | Individual voter points via PMTiles + R2 | Future | — |
 
 ---
 
@@ -76,8 +77,9 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 │  wrangler 4.112.0                                 │
 │  46 assets, 827 KB gzip, 20ms startup             │
 │  Free tier (no credit card)                       │
-│  Future: D1 database binding (Phase 3+)           │
-│  Future: R2 bucket binding (Phase 5)               │
+│  D1 binding active: DB (Phase 3b)                  │
+│  Geocode cache: 945 DM lookups (Phase 5A)          │
+│  Future: R2 bucket binding (Phase 5B)              │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -181,7 +183,8 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 | Property | Value |
 |----------|-------|
 | Type | `circle` |
-| Source | `public/boundaries/dm_centroids.geojson` |
+| Source | `/api/dm?format=geojson` (D1) → fallback `public/boundaries/dm_centroids.geojson` |
+| Features | 945 points (geocoded, all validated inside DUN boundaries) |
 | Features | 945 points (all within DUN boundaries) |
 | Size | `interpolate` on active filter count, 3px (2K) → 20px (27K) — `DM_MAX_VOTERS = 27,000` |
 | Color | Red sequential (`#fbb4ae` → `#b40426`) by `total_voters` |
@@ -190,16 +193,18 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 | Hover highlight | `setFeatureState({ hover: true })` on ring layer |
 | Filters | Gender (All/Male/Female) + Race (All/Malay/Chinese/Indian) via sidebar buttons — updates `circle-radius` paint property (NOT `setFilter`) so all 945 bubbles stay visible but resize to reflect the selected sub-count |
 
-**DM Centroid Generation** (Strategy C — Shapely grid-in-polygon):
+**DM Centroid Generation** (Phase 5A — Geocoded coordinates):
 
-```python
-# scripts/generate_dm_centroids.py
-# Grid spacing: 0.004 degrees (~350m at latitude 3N)
-# Falls back to 0.002 spacing for dense DUNs
-# Stats embedded directly in GeoJSON properties (no client-side join needed)
+```
+# Phase 3 (original): Shapely grid-in-polygon → scripts/generate_dm_centroids.py
+# Phase 5A (current): Google Maps Geocoding API → Nominatim fallback → D1 cache
+#   scripts/geocode_dm_batch.py — batch geocoder (945/945 resolved, $0 cost)
+#   111 exact matches, 834 locality-level matches
+#   Boundary validation: 142 DMs outside DUN polygon → snapped to boundary
+#   Final: 945/945 DMs verified inside parent DUN boundaries
 ```
 
-### Layer 4: Individual Voter Points (future) — Phase 5
+### Layer 4: Individual Voter Points (future) — Phase 5B
 
 | Property | Value |
 |----------|-------|
@@ -235,7 +240,7 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 │ toggles  │        Popup on click                    │
 │ ☑ Parl   │        Hover highlight                   │
 │ ☑ DUN    │                                           │
-│ ☐ DM     │                                           │
+│ ☑ DM     │                                           │
 │ (945)    │                                           │
 │          │                                           │
 │ [Back]   │                                           │
@@ -298,7 +303,7 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 | Boundaries | GeoJSON | — | Electoral boundaries from `public/boundaries/` |
 | Workers | @opennextjs/cloudflare | 1.20.1 | Next.js → CF Workers adapter |
 | CLI | wrangler | 4.112.0 | CF build/deploy |
-| Database | Cloudflare D1 | Provisioned | Edge SQLite — 22 parliaments, 56 DUNs, 945 DMs |
+| Database | Cloudflare D1 | Active | Edge SQLite — 22 parliaments, 56 DUNs, 945 DMs + geocode_cache |
 | Storage | Cloudflare R2 | (Phase 5) | PMTiles for voter points |
 | Hosting | Cloudflare Workers | Free tier | 300+ edge nodes, unlimited bandwidth |
 
@@ -324,10 +329,14 @@ slgrvtrs/
 │   │       ├── setup.ts                # MapLibre init, workerUrl config (19 lines)
 │   │       ├── color-scales.ts         # 10 PARL_COLOR_SCALES + 9 DUN_COLOR_SCALES + interpolation (326 lines)
 │   │       └── join-stats.ts            # Client-side GeoJSON ← JSON merge (64 lines)
-│   ├── app/api/dm/
-│   │   ├── route.ts                     # GET /api/dm — list/search DMs (GeoJSON or JSON, with filters)
-│   │   ├── [code]/route.ts              # GET /api/dm/[code] — single DM lookup
-│   │   └── search/route.ts              # GET /api/dm/search?q= — name autocomplete (limit 20)
+│   ├── app/api/
+│   │   ├── dm/
+│   │   │   ├── route.ts                     # GET /api/dm — list/search DMs (GeoJSON or JSON, with filters)
+│   │   │   ├── [code]/route.ts              # GET /api/dm/[code] — single DM lookup
+│   │   │   └── search/route.ts              # GET /api/dm/search?q= — name autocomplete (limit 20)
+│   │   └── geocode/
+│   │       ├── route.ts                     # POST /api/geocode — single DM geocode (cache → Google → Nominatim)
+│   │       └── status/route.ts             # GET /api/geocode/status — batch geocoding stats
 │   ├── public/
 │   │   ├── boundaries/
 │   │   │   ├── selangor_parliament.geojson  # 22 features, 183 KB
@@ -345,7 +354,8 @@ slgrvtrs/
 │   │   ├── 0001b_add_dm_crosstab.sql       # ALTER TABLE: dun_prefix + 8 cross-tab cols + 2 indexes
 │   │   ├── 0002_load_parliaments.sql      # 22 INSERT OR REPLACE
 │   │   ├── 0003_load_duns.sql             # 56 INSERT OR REPLACE
-│   │   └── 0004_load_dms.sql              # 945 INSERT OR REPLACE (generated by build_d1_load.py)
+│   │   ├── 0004_load_dms.sql              # 945 INSERT OR REPLACE (generated by build_d1_load.py)
+│   │   └── 0005_geocode_cache.sql         # geocode_cache table + indexes (Phase 5A)
 │   ├── cloudflare-env.d.ts                  # TypeScript D1 binding declarations (getCloudflareContext)
 │   ├── wrangler.jsonc                       # CF Worker config (D1 binding active, R2 commented out)
 │   ├── open-next.config.ts                 # OpenNext adapter config
@@ -357,12 +367,19 @@ slgrvtrs/
 │   ├── analyze_xlsx.py                    # Parliament aggregation from xlsx
 │   ├── build_dun_stats.py                 # DUN aggregation from xlsx
 │   ├── build_dm_stats.py                  # DM aggregation from xlsx (Phase 3)
-│   ├── generate_dm_centroids.py           # Shapely grid-in-polygon DM centroids (Phase 3)
+│   ├── generate_dm_centroids.py           # Shapely grid-in-polygon DM centroids (Phase 3, superseded by geocode)
+│   ├── geocode_dm_batch.py                # Batch geocoder: Google → Nominatim → D1 cache (Phase 5A)
+│   ├── pip_analysis.py                    # Point-in-polygon analysis: DM vs DUN boundary validation
+│   ├── fix_dm_boundaries.py               # Snap out-of-bounds DMs to nearest point inside DUN polygon
+│   ├── fix_remaining.py                   # Fix concave polygon edge cases (interior point search)
+│   ├── verify_fix.py                      # Post-fix verification: 945/945 inside DUN boundaries
 │   ├── build_d1_load.py                   # Generate D1 SQL from JSON stats
 │   ├── filter_dun.py                      # Filter MECo GeoJSON to Selangor DUNs
 │   └── generate_outline.py                # Generate Selangor outline GeoJSON
 ├── docs/
-│   └── CLOUDFLARE_IMPLEMENTATION_CHECKLIST.md  # CF deployment task tracking
+│   ├── CLOUDFLARE_IMPLEMENTATION_CHECKLIST.md  # CF deployment task tracking
+│   ├── PHASE3_D1_DATABASE_IMPLEMENTATION.md  # D1 implementation (COMPLETE)
+│   └── PHASE5_DM_CENTROID_GEOCODING.md      # DM geocoding plan + results (COMPLETE)
 ├── CLOUDFLARE_DEPLOYMENT.md               # CF deployment guide (deployed)
 ├── CLOUDFLARE_D1_DATABASE.md              # D1 database design
 ├── CLOUDFLARE_PHASE_COMPATIBILITY.md      # Phase × CF compatibility matrix
@@ -507,7 +524,7 @@ tippecanoe -o voters.pmtiles \
 | **Cost** | $0 (free tier, no credit card) |
 | **Assets** | 46 files, 827 KB gzip |
 | **Worker startup** | 20 ms |
-| **Bindings** | `env.ASSETS` only (D1/R2 future) |
+| **Bindings** | `env.ASSETS` + `env.DB` (D1, since Phase 3b) |
 
 ### 10.2 Build & Deploy
 
@@ -573,7 +590,7 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] DM hover tooltip with name + voter count
 - [x] DM click popup with 14-field demographics
 - [x] Race/gender filter controls in sidebar (3 gender + 4 race buttons)
-- [ ] Optionally: Provision D1 database and create DM API route (deferred)
+- [x] Provision D1 database and create DM API route (Phase 3b)
 
 ### Phase 4: Polish & Deploy — COMPLETE ✅
 - [x] Refactor `page.tsx` to Server Component (via `MapDashboardClient.tsx` wrapper — `'use client'` + `dynamic` + `ssr: false` must stay in client boundary in Next.js 16)
@@ -585,15 +602,17 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] Popup CSS overrides: `max-width: 300px`, `border-radius: 8px`, mobile `max-width: calc(100vw - 40px)`
 - [ ] Lighthouse audit (deferred — requires production deploy first)
 
-### Phase 5A: DM Centroid Geocoding (Planned — see [`docs/PHASE5_DM_CENTROID_GEOCODING.md`](docs/PHASE5_DM_CENTROID_GEOCODING.md))
-- [ ] Create `geocode_cache` D1 table (migration `0005_geocode_cache.sql`)
-- [ ] Set `GOOGLE_GEOCODING_API_KEY` as Wrangler secret (user-provided at implementation)
-- [ ] Build `scripts/geocode_dm_batch.py` (Google primary 45 QPS → Nominatim fallback 1 QPS → D1 cache)
-- [ ] Implement `POST /api/geocode` (single DM geocode with cache-first → Google → Nominatim flow)
-- [ ] Implement `GET /api/geocode/status` (batch progress monitoring)
-- [ ] Run batch geocoding for all 945 DMs, update `dms.centroid_lng/centroid_lat` with real coordinates
-- [ ] Regenerate static `dm_centroids.geojson` fallback with geocoded coordinates
-- [ ] Validate: ≥85% resolution rate, 100% coordinates within Selangor bounds
+### Phase 5A: DM Centroid Geocoding — COMPLETE ✅ (see [`docs/PHASE5_DM_CENTROID_GEOCODING.md`](docs/PHASE5_DM_CENTROID_GEOCODING.md))
+- [x] Create `geocode_cache` D1 table (migration `0005_geocode_cache.sql`)
+- [x] Set `GOOGLE_GEOCODING_API_KEY` as Wrangler secret
+- [x] Build `scripts/geocode_dm_batch.py` (Google primary 40 QPS → Nominatim fallback 1 QPS → D1 cache)
+- [x] Implement `POST /api/geocode` (single DM geocode with cache-first → Google → Nominatim flow)
+- [x] Implement `GET /api/geocode/status` (batch progress monitoring)
+- [x] Run batch geocoding for all 945 DMs → 945/945 resolved (111 exact + 834 locality), $0 cost
+- [x] Regenerate static `dm_centroids.geojson` fallback with geocoded coordinates
+- [x] Validate: 100% resolution rate, all coordinates within Selangor bounds
+- [x] Point-in-polygon boundary validation: 142/945 DMs outside DUN → snapped to boundary (88 boundary snap + 34 DUN centroid + 20 offset variants)
+- [x] Final verification: 945/945 DMs inside parent DUN boundaries
 
 ### Phase 5B: Individual Voter Points (Future)
 - [ ] Build tippecanoe pipeline → `voters.pmtiles`

@@ -14,12 +14,13 @@ npm run build:cf   # Build for Cloudflare Workers
 npx wrangler dev    # Local dev with D1 (requires wrangler)
 ```
 
-## Features (Phase 1–3b)
+## Features (Phase 1–5A)
 
 - **Parliament choropleth** (22 seats) with 10 switchable metrics
 - **DUN drill-down** (56 seats) with 9 dynamic choropleth metrics
 - **DM bubble layer** (945 centroids) with race/gender proportional filters
 - **D1 database** with 3 API routes (`/api/dm`, `/api/dm/[code]`, `/api/dm/search`)
+- **DM geocoding** (Phase 5A) — 945/945 real coordinates via Google Maps + Nominatim, boundary-validated
 - **Responsive design** with mobile sidebar collapse
 - **ErrorBoundary** and **provenance panel**
 
@@ -41,6 +42,8 @@ npx wrangler dev    # Local dev with D1 (requires wrangler)
 - `src/app/api/dm/route.ts` — GET /api/dm (GeoJSON or JSON, with DUN/Parliament/voter filters)
 - `src/app/api/dm/[code]/route.ts` — GET /api/dm/[code] (single DM lookup)
 - `src/app/api/dm/search/route.ts` — GET /api/dm/search?q= (name autocomplete)
+- `src/app/api/geocode/route.ts` — POST /api/geocode (cache → Google → Nominatim geocoding)
+- `src/app/api/geocode/status/route.ts` — GET /api/geocode/status (geocoding stats)
 - `src/lib/map/setup.ts` — MapLibre worker URL config + named re-exports
 - `src/lib/map/join-stats.ts` — Stats JSON → GeoJSON property join
 - `src/lib/map/color-scales.ts` — 10 Parliament + 9 DUN color scales + expression builder
