@@ -174,54 +174,75 @@ Audited the choropleth coloring logic for Parliament (Layer 1) and DUN (Layer 2)
 
 ---
 
-## Phase C: D1 Database (Phase 3+ DM Queries)
+## Phase C: D1 Database (Phase 3b DM Queries)
 
-> **Not started.** Schema and migration files are ready.
+> **COMPLETE.** All tasks CF-20 through CF-25 are done.
+> Database: `slgrvtrs-voters` (ID: `59afb76e-a3a2-4e2a-b18d-857f9f5704fb`, region APAC).
+> 3 API routes deployed: `GET /api/dm`, `GET /api/dm/[code]`, `GET /api/dm/search`.
 
-### [ ] CF-20: Create D1 Database
+### [x] CF-20: Create D1 Database
 
 ```bash
 npx wrangler d1 create slgrvtrs-voters
-# Copy the database_id from output
-# Paste into wrangler.jsonc d1_databases[0].database_id
+# Database ID: 59afb76e-a3a2-4e2a-b18d-857f9f5704fb
+# Pasted into wrangler.jsonc d1_databases[0].database_id
 ```
 
-### [ ] CF-21: Apply Schema Migration
+### [x] CF-21: Apply Schema Migration
 
-```bash
-npx wrangler d1 execute slgrvtrs-voters --remote --file=./migrations/0001_analytics_warehouse.sql
-```
+Applied manually via `wrangler d1 execute --remote --command="CREATE TABLE..."` (the migration system had issues with multi-statement DDL on remote D1). All 4 tables created: `parliaments`, `duns`, `dms`, `data_version`.
 
 ### [x] CF-22: Generate Data Load SQL from Existing JSON
 
-**Done** via `scripts/build_d1_load.py`:
-- `migrations/0002_load_parliaments.sql` — 22 INSERT OR REPLACE statements
-- `migrations/0003_load_duns.sql` — 56 INSERT OR REPLACE statements
-
 ```bash
 python3 scripts/build_d1_load.py
+# Output: 0002_load_parliaments.sql (22 rows), 0003_load_duns.sql (56 rows), 0004_load_dms.sql (945 rows)
 ```
 
-### [ ] CF-23: Load Pre-Aggregated Stats
+### [x] CF-23: Load Pre-Aggregated Stats
+
+All data loaded via wrangler CLI and D1 HTTP API:
+- 22 parliaments via `wrangler d1 execute --remote --command`
+- 56 DUNs via `wrangler d1 execute --remote --command`
+- 945 DMs via D1 HTTP API (batched 50 statements per request)
+
+### [x] CF-24: Verify D1 Data
 
 ```bash
-npx wrangler d1 execute slgrvtrs-voters --remote --file=./migrations/0002_load_parliaments.sql
-npx wrangler d1 execute slgrvtrs-voters --remote --file=./migrations/0003_load_duns.sql
+npx wrangler d1 execute slgrvtrs-voters --remote --command="SELECT 'parliaments' AS tbl, COUNT(*) FROM parliaments UNION ALL SELECT 'duns', COUNT(*) FROM duns UNION ALL SELECT 'dms', COUNT(*) FROM dms"
+# Result: parliaments=22, duns=56, dms=945
 ```
 
-### [ ] CF-24: Verify D1 Data
+### [x] CF-25: Uncomment D1 Binding in wrangler.jsonc
 
-```bash
-npx wrangler d1 execute slgrvtrs-voters --remote --command="SELECT COUNT(*) as cnt FROM parliaments"
-# Expected: 22
-
-npx wrangler d1 execute slgrvtrs-voters --remote --command="SELECT COUNT(*) as cnt FROM duns"
-# Expected: 56
+Done. D1 binding is active in `wrangler.jsonc`:
+```jsonc
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "slgrvtrs-voters",
+    "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb"
+  }
+]
 ```
 
-### [ ] CF-25: Uncomment D1 Binding in wrangler.jsonc
+### [x] CF-26: Create DM API Routes
 
-Remove the comments around `d1_databases` in `wrangler.jsonc` and paste the `database_id` from CF-20.
+3 API routes created in `src/app/api/dm/`:
+- `GET /api/dm?format=geojson&dun=&parl=&min_voters=&max_voters=` — list/search DMs
+- `GET /api/dm/[code]` — single DM lookup
+- `GET /api/dm/search?q=` — name autocomplete (limit 20)
+
+All use `getCloudflareContext()` from `@opennextjs/cloudflare` (not `getRequestContext`).
+Cache-Control: `s-maxage=3600, stale-while-revalidate=86400`.
+
+### [x] CF-27: Frontend D1 Integration
+
+`MapDashboard.tsx` updated: tries `GET /api/dm?format=geojson` first, falls back to static `dm_centroids.geojson` if API fails. GeoJSON property names are identical in both sources.
+
+### [x] CF-28: Add Cross-Tab Columns
+
+Migration `0001b_add_dm_crosstab.sql` adds `dun_prefix` + 8 gender×race columns to `dms` table. `build_d1_load.py` updated to include `dun_prefix` in generated SQL.
 
 ---
 
@@ -280,6 +301,6 @@ CF-00 (fix next.config.ts) ✅
 | Pre-Flight | CF-00 | **DONE** | next.config.ts fixed |
 | A: Static | CF-01..04 | **SKIPPED** | Went straight to Workers |
 | B: Workers | CF-10..20 | **DONE** | Live at workers.dev; DM bubble filter bugs fixed; choropleth metric audit complete |
-| C: D1 | CF-20..25 | **Ready** | SQL files generated, D1 not provisioned |
+| C: D1 | CF-20..28 | **DONE** | DB provisioned, 1023 rows loaded, 3 API routes live, frontend integrated |
 | D: R2 | CF-30..32 | **Future** | Needs PMTiles build first |
 | E: CI/CD | CF-40..41 | **Optional** | Git integration already auto-deploys |

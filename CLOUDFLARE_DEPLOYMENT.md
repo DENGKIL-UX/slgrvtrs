@@ -395,9 +395,10 @@ Total: 48 files
 ```
 Binding            Resource
 env.ASSETS         Assets
+env.DB              D1 Database (slgrvtrs-voters, 1023 rows: 22 parliaments + 56 DUNs + 945 DMs)
 ```
 
-No D1 or R2 bindings yet (Phase 3+).
+D1 binding active since Phase 3b. R2 binding planned for Phase 5.
 
 ### 9.5 Routes
 

@@ -13,7 +13,7 @@
 |-------|-------------|---------------|-------------------|-----------------|------|
 | **Phase 1** | Parliament choropleth map | Yes | Static Pages | None | None |
 | **Phase 2** | DUN drill-down + toggles | Yes | Static Pages | None | None |
-| **Phase 3** | DM bubble visualization, DUN choropleth (9 metrics), race/gender filters | Yes | Static + D1 | Add D1 for DM queries | Low |
+| **Phase 3** | DM bubble visualization, DUN choropleth (9 metrics), race/gender filters, D1 database, DM API routes | Yes | Static + D1 | D1 provisioned with 945 DMs, 3 API routes, frontend fallback | None |
 | **Phase 4** | Polish & deploy — responsive, ErrorBoundary, provenance, Server Component | Yes | Static Pages + Workers | None | None |
 | **Phase 5** | Individual voter points (PMTiles) | Yes | Static + R2 | Add R2 for PMTiles | Low |
 
@@ -92,21 +92,23 @@
 - No D1 needed, no API routes, no Workers
 - Deploy as pure static — same as Phase 1-2
 
-**D1 approach (optional enhancement):**
-- Create D1 database with `dms` table
-- Add API route: `GET /api/dms?dun=N.01&race=02`
-- Use `@opennextjs/cloudflare` + `wrangler.jsonc` with D1 binding
-- 945 DM queries/day is negligible (free tier: 5M reads/day)
+**D1 approach (implemented):**
+- D1 database `slgrvtrs-voters` provisioned (region APAC)
+- Schema: `parliaments` (22), `duns` (56), `dms` (945) with 8 cross-tab columns
+- 3 API routes: `GET /api/dm`, `GET /api/dm/[code]`, `GET /api/dm/search`
+- Frontend tries API first, falls back to static GeoJSON
+- Cache-Control: `s-maxage=3600, stale-while-revalidate=86400`
+- Uses `getCloudflareContext()` from `@opennextjs/cloudflare` (not `getRequestContext`)
 
 ### Changes needed for static approach
 - None to the deployment config
 - Generate `dm.json` and `dm_centroids.geojson` (already in the Phase 3 plan)
 
 ### Changes needed for D1 approach
-- Uncomment D1 binding in `wrangler.jsonc` (already scaffolded)
-- Add API route **without** `export const runtime = 'edge'` (see below)
-- Create D1 database: `npx wrangler d1 create slgrvtrs-voters`
-- Apply migrations: see `CLOUDFLARE_D1_DATABASE.md` §9
+- All done: DB provisioned, migrations applied, API routes deployed, frontend integrated
+- Key gotcha: use `getCloudflareContext()` not `getRequestContext()`
+- Key gotcha: do NOT add `"types": ["@cloudflare/workers-types"]` to tsconfig.json — it breaks GeoJSON namespace
+- Key gotcha: D1 remote migration system doesn't handle multi-statement DDL well — use `--command` for manual execution
 
 > **CRITICAL**: Do NOT add `export const runtime = 'edge'` to API routes.
 > Workers are already edge. `runtime = 'edge'` causes **500 errors** on CF Workers.

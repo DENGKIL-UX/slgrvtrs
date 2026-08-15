@@ -1,9 +1,10 @@
 # Cloudflare D1 Database — SLGRVTRS Voter Data
 
-> **Status**: Workers deployment live. D1 not yet provisioned (Phase 3+).
+> **Status**: D1 database provisioned and live. 22 parliaments, 56 DUNs, 945 DMs loaded.
 > **Last updated**: 2026-08-15
-> **Target**: Cloudflare D1 Free Tier (no credit card)
-> **See**: `docs/CLOUDFLARE_IMPLEMENTATION_CHECKLIST.md` CF-20..25 for task tracking
+> **Database**: `slgrvtrs-voters` (ID: `59afb76e-a3a2-4e2a-b18d-857f9f5704fb`, region APAC)
+> **Binding**: `env.DB` in `wrangler.jsonc`
+> **See**: `docs/PHASE3_D1_DATABASE_IMPLEMENTATION.md` for implementation plan (completed)
 
 ---
 
