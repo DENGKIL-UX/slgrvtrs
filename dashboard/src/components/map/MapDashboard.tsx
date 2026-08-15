@@ -46,7 +46,6 @@ interface DUNProperties {
   code_dun: string;
   voter_prefix: string;
   parent_parl: string;
-  // Joined stats from dun.json
   total_voters?: number;
   male?: number;
   female?: number;
@@ -63,6 +62,33 @@ interface DUNProperties {
   locality_count?: number;
 }
 
+interface DMProperties {
+  dm_code: string;
+  dun_code: string;
+  dun_prefix: string;
+  code_parlimen: string;
+  total_voters: number;
+  male: number;
+  female: number;
+  male_pct: number;
+  female_pct: number;
+  malay_pct: number;
+  chinese_pct: number;
+  indian_pct: number;
+  other_pct: number;
+  age_mean: number;
+  age_median: number;
+  contact_pct: number;
+  male_malay: number;
+  male_chinese: number;
+  male_indian: number;
+  male_other: number;
+  female_malay: number;
+  female_chinese: number;
+  female_indian: number;
+  female_other: number;
+}
+
 // ============================================================
 // Layer toggle state
 // ============================================================
@@ -72,6 +98,13 @@ interface LayerVisibility {
   dun: boolean;
   dm: boolean;
 }
+
+// ============================================================
+// Filter state for DM race/gender
+// ============================================================
+
+type GenderFilter = 'all' | 'male' | 'female';
+type RaceFilter = 'all' | 'malay' | 'chinese' | 'indian';
 
 // ============================================================
 // Constants
@@ -85,13 +118,19 @@ const MAX_ZOOM = 18;
 const DEFAULT_LAYERS: LayerVisibility = {
   parliament: true,
   dun: true,
-  dm: false, // Phase 3 — not yet implemented
+  dm: false,
 };
 
 // All layer IDs per group for visibility toggling
 const PARLIAMENT_LAYER_IDS = ['parliament-fill', 'parliament-label', 'parliament-border'];
 const DUN_LAYER_IDS = ['dun-fill', 'dun-border', 'dun-label'];
-const DM_LAYER_IDS: string[] = []; // Phase 3
+const DM_LAYER_IDS = ['dm-bubble', 'dm-bubble-border'];
+
+// DM bubble sizing: sqrt scaling for area-proportional circles
+const DM_MIN_RADIUS = 3;
+const DM_MAX_RADIUS = 20;
+const DM_MIN_VOTERS = 2000;
+const DM_MAX_VOTERS = 15000;
 
 // ============================================================
 // Component
@@ -102,6 +141,7 @@ export default function MapDashboard() {
   const mapRef = useRef<Map | null>(null);
   const popupRef = useRef<Popup | null>(null);
   const hoveredIdRef = useRef<number | null>(null);
+  const dmCentroidsRef = useRef<GeoJSON.FeatureCollection | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,12 +149,16 @@ export default function MapDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [layers, setLayers] = useState<LayerVisibility>(DEFAULT_LAYERS);
   const [drilledParl, setDrilledParl] = useState<string | null>(null);
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>('all');
+  const [raceFilter, setRaceFilter] = useState<RaceFilter>('all');
 
-  // Keep a ref to activeMetric so the map callback always reads the latest
+  // Keep refs for map callbacks
   const activeMetricRef = useRef(activeMetric);
-  useEffect(() => {
-    activeMetricRef.current = activeMetric;
-  }, [activeMetric]);
+  useEffect(() => { activeMetricRef.current = activeMetric; }, [activeMetric]);
+  const genderFilterRef = useRef(genderFilter);
+  useEffect(() => { genderFilterRef.current = genderFilter; }, [genderFilter]);
+  const raceFilterRef = useRef(raceFilter);
+  useEffect(() => { raceFilterRef.current = raceFilter; }, [raceFilter]);
 
   // ------- Toggle layer visibility -------
   const toggleLayer = useCallback((group: keyof LayerVisibility) => {
@@ -144,7 +188,6 @@ export default function MapDashboard() {
     const map = mapRef.current;
     if (!map) return;
 
-    // Remove filter (show all DUNs)
     if (map.getLayer('dun-fill')) {
       map.setFilter('dun-fill', null);
     }
@@ -155,11 +198,59 @@ export default function MapDashboard() {
       map.setFilter('dun-label', null);
     }
 
-    // Fly back to state overview
     map.flyTo({ center: SELANGOR_CENTER, zoom: DEFAULT_ZOOM, duration: 800 });
     setDrilledParl(null);
     popupRef.current?.remove();
   }, []);
+
+  // ------- Apply DM filter to bubble layer -------
+  const applyDmFilter = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !map.getLayer('dm-bubble')) return;
+
+    const gf = genderFilterRef.current;
+    const rf = raceFilterRef.current;
+
+    // Build filter: combine gender + race
+    const filters: any[] = [];
+
+    if (gf === 'all' && rf === 'all') {
+      map.setFilter('dm-bubble', null);
+      map.setFilter('dm-bubble-border', null);
+      return;
+    }
+
+    if (gf !== 'all') {
+      // For 'male': male_malay + male_chinese + male_indian + male_other > 0
+      // For 'female': female_malay + female_chinese + female_indian + female_other > 0
+      // Simpler: just check male_pct > 50 or female_pct > 50? No, use sub-counts.
+      // Use ['>', ['+', ...subcount fields], 0]
+      const fields = gf === 'male'
+        ? ['male_malay', 'male_chinese', 'male_indian', 'male_other']
+        : ['female_malay', 'female_chinese', 'female_indian', 'female_other'];
+      const sumExpr = ['+', ['get', fields[0]], ['get', fields[1]], ['get', fields[2]], ['get', fields[3]]];
+      filters.push(['>', sumExpr, 0]);
+    }
+
+    if (rf !== 'all') {
+      // For 'malay': male_malay + female_malay > 0
+      const mField = `male_${rf}`;
+      const fField = `female_${rf}`;
+      filters.push(['>', ['+', ['get', mField], ['get', fField]], 0]);
+    }
+
+    const combined = filters.length === 1
+      ? filters[0]
+      : ['all', ...filters];
+
+    map.setFilter('dm-bubble', combined as FilterSpecification);
+    map.setFilter('dm-bubble-border', combined as FilterSpecification);
+  }, []);
+
+  // Apply filter when it changes
+  useEffect(() => {
+    applyDmFilter();
+  }, [genderFilter, raceFilter, applyDmFilter]);
 
   // ------- Load data & initialize map -------
   useEffect(() => {
@@ -171,18 +262,17 @@ export default function MapDashboard() {
       try {
         initMapLibre();
 
-        // Load all boundary data in parallel
-        const [parlRes, statsRes, dunRes, dunStatsRes, outlineRes] = await Promise.all([
+        const [parlRes, statsRes, dunRes, dunStatsRes, outlineRes, dmCentroidsRes] = await Promise.all([
           fetch('/boundaries/selangor_parliament.geojson'),
           fetch('/stats/parliament.json'),
           fetch('/boundaries/selangor_dun.geojson'),
           fetch('/stats/dun.json'),
           fetch('/boundaries/selangor_outline.geojson').catch(() => null),
+          fetch('/boundaries/dm_centroids.geojson').catch(() => null),
         ]);
 
         if (cancelled) return;
 
-        // Parse responses — outline is optional (graceful degradation)
         const [parlGeojson, stats, dunGeojson, dunStats] = await Promise.all([
           parlRes.json(),
           statsRes.json() as Promise<StatsMap>,
@@ -190,16 +280,18 @@ export default function MapDashboard() {
           dunStatsRes.json() as Promise<DUNStatsMap>,
         ]);
         const outlineGeojson = outlineRes ? await outlineRes.json().catch(() => null) : null;
+        const dmCentroids = dmCentroidsRes ? await dmCentroidsRes.json().catch(() => null) : null;
 
-        // Join stats into parliament GeoJSON properties
+        // Store DM centroids ref for filter updates
+        if (dmCentroids) {
+          dmCentroidsRef.current = dmCentroids;
+        }
+
         const joined = joinStatsToGeoJSON(parlGeojson, stats);
-
-        // Join DUN stats into DUN GeoJSON properties
         const dunJoined = joinStatsToGeoJSON(dunGeojson, dunStats as unknown as StatsMap);
 
         if (cancelled) return;
 
-        // Create map
         const map = new Map({
           container: containerRef.current!,
           style: {
@@ -207,11 +299,7 @@ export default function MapDashboard() {
             name: 'SLGRVTRS Blank',
             sources: {},
             layers: [
-              {
-                id: 'background',
-                type: 'background',
-                paint: { 'background-color': '#f0f4f8' },
-              },
+              { id: 'background', type: 'background', paint: { 'background-color': '#f0f4f8' } },
             ],
             glyphs: 'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
           },
@@ -222,188 +310,159 @@ export default function MapDashboard() {
           attributionControl: false,
         });
 
-        map.addControl(
-          new AttributionControl({ compact: true }),
-          'bottom-right'
-        );
+        map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
         map.addControl(new NavigationControl(), 'top-right');
 
-        // ---- DUN hover state ref ----
         let hoveredDunId: number | null = null;
 
         map.on('load', () => {
           if (cancelled) return;
 
           // ==== SOURCES ====
-
-          // State outline (JAKIM) — always behind everything (optional)
           if (outlineGeojson) {
-          map.addSource('outline', {
-            type: 'geojson',
-            data: outlineGeojson,
-          });
+            map.addSource('outline', { type: 'geojson', data: outlineGeojson });
           }
+          map.addSource('parliament', { type: 'geojson', data: joined });
+          map.addSource('dun', { type: 'geojson', data: dunJoined });
 
-          // Parliament (with joined stats)
-          map.addSource('parliament', {
-            type: 'geojson',
-            data: joined,
-          });
-
-          // DUN boundaries (with joined stats)
-          map.addSource('dun', {
-            type: 'geojson',
-            data: dunJoined,
-          });
+          // DM centroids source (loaded with stats embedded in properties)
+          if (dmCentroids) {
+            map.addSource('dm', { type: 'geojson', data: dmCentroids });
+          }
 
           // ==== STATE OUTLINE LAYER (optional) ====
           if (outlineGeojson) {
-          map.addLayer({
-            id: 'outline-fill',
-            type: 'fill',
-            source: 'outline',
-            paint: {
-              'fill-color': '#e2e8f0',
-              'fill-opacity': 0.35,
-            },
-          });
-          map.addLayer({
-            id: 'outline-border',
-            type: 'line',
-            source: 'outline',
-            paint: {
-              'line-color': '#475569',
-              'line-width': 2.5,
-              'line-opacity': 0.9,
-            },
-          });
+            map.addLayer({
+              id: 'outline-fill', type: 'fill', source: 'outline',
+              paint: { 'fill-color': '#e2e8f0', 'fill-opacity': 0.35 },
+            });
+            map.addLayer({
+              id: 'outline-border', type: 'line', source: 'outline',
+              paint: { 'line-color': '#475569', 'line-width': 2.5, 'line-opacity': 0.9 },
+            });
           }
 
-          // ---- Initial scale ----
           const scale = getScaleById('total_voters');
           const colorExpr = buildColorExpression(scale.property, scale.stops);
 
           // ==== PARLIAMENT LAYERS ====
-          // Fill: visible at state-level zoom (7–9)
           map.addLayer({
-            id: 'parliament-fill',
-            type: 'fill',
-            source: 'parliament',
-            maxzoom: 9,
+            id: 'parliament-fill', type: 'fill', source: 'parliament', maxzoom: 9,
             paint: {
               'fill-color': colorExpr,
               'fill-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                0.92,
-                0.72,
+                'case', ['boolean', ['feature-state', 'hover'], false], 0.92, 0.72,
               ],
             },
           });
-
-          // Border: always visible as outline reference
           map.addLayer({
-            id: 'parliament-border',
-            type: 'line',
-            source: 'parliament',
+            id: 'parliament-border', type: 'line', source: 'parliament',
             paint: {
               'line-color': '#1e293b',
-              'line-width': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                2.5,
-                1,
-              ],
+              'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 1],
               'line-opacity': 0.8,
             },
           });
-
-          // Label: only at state-level zoom
           map.addLayer({
-            id: 'parliament-label',
-            type: 'symbol',
-            source: 'parliament',
-            maxzoom: 9,
+            id: 'parliament-label', type: 'symbol', source: 'parliament', maxzoom: 9,
             layout: {
-              'text-field': ['get', 'code_parlimen'],
-              'text-size': 12,
-              'text-font': ['Open Sans Regular'],
-              'text-anchor': 'center',
-              'text-allow-overlap': false,
-              'text-ignore-placement': false,
+              'text-field': ['get', 'code_parlimen'], 'text-size': 12,
+              'text-font': ['Open Sans Regular'], 'text-anchor': 'center',
+              'text-allow-overlap': false, 'text-ignore-placement': false,
             },
             paint: {
               'text-color': '#0f172a',
-              'text-halo-color': 'rgba(255,255,255,0.85)',
-              'text-halo-width': 1.5,
+              'text-halo-color': 'rgba(255,255,255,0.85)', 'text-halo-width': 1.5,
             },
           });
 
           // ==== DUN LAYERS ====
-          // Fill: appears when zoomed past state level
           map.addLayer({
-            id: 'dun-fill',
-            type: 'fill',
-            source: 'dun',
-            minzoom: 8.5,
+            id: 'dun-fill', type: 'fill', source: 'dun', minzoom: 8.5,
             paint: {
               'fill-color': '#b2dfdb',
-              'fill-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                0.75,
-                0.5,
-              ],
+              'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.75, 0.5],
             },
           });
-
-          // Border
           map.addLayer({
-            id: 'dun-border',
-            type: 'line',
-            source: 'dun',
-            minzoom: 8.5,
+            id: 'dun-border', type: 'line', source: 'dun', minzoom: 8.5,
             paint: {
               'line-color': '#00695c',
-              'line-width': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                2,
-                0.8,
-              ],
+              'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2, 0.8],
               'line-opacity': 0.7,
             },
           });
-
-          // Label: visible from zoom 9+ to avoid clutter
           map.addLayer({
-            id: 'dun-label',
-            type: 'symbol',
-            source: 'dun',
-            minzoom: 9,
+            id: 'dun-label', type: 'symbol', source: 'dun', minzoom: 9,
             layout: {
-              'text-field': ['get', 'code_dun'],
-              'text-size': 10,
-              'text-font': ['Open Sans Regular'],
-              'text-anchor': 'center',
-              'text-allow-overlap': true,
-              'text-ignore-placement': true,
+              'text-field': ['get', 'code_dun'], 'text-size': 10,
+              'text-font': ['Open Sans Regular'], 'text-anchor': 'center',
+              'text-allow-overlap': true, 'text-ignore-placement': true,
             },
             paint: {
               'text-color': '#004d40',
-              'text-halo-color': 'rgba(255,255,255,0.9)',
-              'text-halo-width': 1.2,
+              'text-halo-color': 'rgba(255,255,255,0.9)', 'text-halo-width': 1.2,
             },
           });
 
+          // ==== DM BUBBLE LAYER (Phase 3) ====
+          if (dmCentroids) {
+            // Circle: proportional to sqrt(total_voters) for area-proportional sizing
+            map.addLayer({
+              id: 'dm-bubble',
+              type: 'circle',
+              source: 'dm',
+              minzoom: 11,
+              layout: { visibility: layers.dm ? 'visible' : 'none' },
+              paint: {
+                'circle-radius': [
+                  'interpolate', ['linear'], ['get', 'total_voters'],
+                  DM_MIN_VOTERS, DM_MIN_RADIUS,
+                  DM_MAX_VOTERS, DM_MAX_RADIUS,
+                ],
+                'circle-color': [
+                  'interpolate', ['linear'], ['get', 'total_voters'],
+                  2000, '#fbb4ae',
+                  5000, '#f7a072',
+                  8000, '#f4845f',
+                  11000, '#e15759',
+                  15000, '#b40426',
+                ],
+                'circle-opacity': 0.75,
+                'circle-stroke-width': 0,
+              },
+            });
+
+            // Hover ring (slightly larger, transparent fill, visible stroke)
+            map.addLayer({
+              id: 'dm-bubble-border',
+              type: 'circle',
+              source: 'dm',
+              minzoom: 11,
+              layout: { visibility: layers.dm ? 'visible' : 'none' },
+              paint: {
+                'circle-radius': [
+                  '+',
+                  ['interpolate', ['linear'], ['get', 'total_voters'],
+                    DM_MIN_VOTERS, DM_MIN_RADIUS,
+                    DM_MAX_VOTERS, DM_MAX_RADIUS,
+                  ],
+                  2,
+                ],
+                'circle-color': 'transparent',
+                'circle-opacity': [
+                  'case', ['boolean', ['feature-state', 'hover'], false], 0.6, 0,
+                ],
+                'circle-stroke-color': '#6d1a36',
+                'circle-stroke-width': 2,
+              },
+            });
+          }
+
           // ==== POPUP (shared) ====
           const popup = new Popup({
-            closeButton: true,
-            closeOnClick: false,
-            anchor: 'top',
-            maxWidth: '340px',
-            offset: 10,
-            className: 'parliament-popup',
+            closeButton: true, closeOnClick: false, anchor: 'top',
+            maxWidth: '340px', offset: 10, className: 'parliament-popup',
           });
           popupRef.current = popup;
 
@@ -414,36 +473,23 @@ export default function MapDashboard() {
             const props = feat.properties as unknown as PopupData;
             const codeParlimen = props.code_parlimen;
 
-            // Filter DUN layers to show only this Parliament's child DUNs
             const dunsFilter: FilterSpecification = ['==', ['get', 'parent_parl'], codeParlimen] as unknown as FilterSpecification;
             DUN_LAYER_IDS.forEach((id) => {
-              if (map.getLayer(id)) {
-                map.setFilter(id, dunsFilter);
-              }
+              if (map.getLayer(id)) map.setFilter(id, dunsFilter);
             });
 
-            // Fly to the clicked Parliament's bounds
             if (feat.geometry && feat.geometry.type === 'Polygon') {
               const bounds = new LngLatBounds();
               for (const ring of feat.geometry.coordinates) {
-                for (const coord of ring) {
-                  bounds.extend(coord as [number, number]);
-                }
+                for (const coord of ring) bounds.extend(coord as [number, number]);
               }
               map.flyTo({
-                center: bounds.getCenter(),
-                zoom: 10.5,
-                duration: 800,
+                center: bounds.getCenter(), zoom: 10.5, duration: 800,
                 padding: { top: 40, bottom: 40, left: 40, right: 40 },
               });
             }
 
-            // Show popup with Parliament info + drill-down hint
-            popup
-              .setLngLat(e.lngLat)
-              .setHTML(buildParliamentPopupHTML(props, true))
-              .addTo(map);
-
+            popup.setLngLat(e.lngLat).setHTML(buildParliamentPopupHTML(props, true)).addTo(map);
             setDrilledParl(codeParlimen);
           });
 
@@ -452,25 +498,15 @@ export default function MapDashboard() {
             if (!e.features?.length) return;
             const fid = e.features[0].id as number;
             if (hoveredIdRef.current !== null && hoveredIdRef.current !== fid) {
-              map.setFeatureState(
-                { source: 'parliament', id: hoveredIdRef.current },
-                { hover: false },
-              );
+              map.setFeatureState({ source: 'parliament', id: hoveredIdRef.current }, { hover: false });
             }
             hoveredIdRef.current = fid;
-            map.setFeatureState(
-              { source: 'parliament', id: fid },
-              { hover: true },
-            );
+            map.setFeatureState({ source: 'parliament', id: fid }, { hover: true });
             map.getCanvas().style.cursor = 'pointer';
           });
-
           map.on('mouseleave', 'parliament-fill', () => {
             if (hoveredIdRef.current !== null) {
-              map.setFeatureState(
-                { source: 'parliament', id: hoveredIdRef.current },
-                { hover: false },
-              );
+              map.setFeatureState({ source: 'parliament', id: hoveredIdRef.current }, { hover: false });
               hoveredIdRef.current = null;
             }
             map.getCanvas().style.cursor = '';
@@ -480,10 +516,7 @@ export default function MapDashboard() {
           map.on('click', 'dun-fill', (e) => {
             if (!e.features?.length) return;
             const props = e.features[0].properties as unknown as DUNProperties;
-            popup
-              .setLngLat(e.lngLat)
-              .setHTML(buildDUNPopupHTML(props))
-              .addTo(map);
+            popup.setLngLat(e.lngLat).setHTML(buildDUNPopupHTML(props)).addTo(map);
           });
 
           // ---- DUN hover highlight ----
@@ -491,29 +524,66 @@ export default function MapDashboard() {
             if (!e.features?.length) return;
             const fid = e.features[0].id as number;
             if (hoveredDunId !== null && hoveredDunId !== fid) {
-              map.setFeatureState(
-                { source: 'dun', id: hoveredDunId },
-                { hover: false },
-              );
+              map.setFeatureState({ source: 'dun', id: hoveredDunId }, { hover: false });
             }
             hoveredDunId = fid;
-            map.setFeatureState(
-              { source: 'dun', id: fid },
-              { hover: true },
-            );
+            map.setFeatureState({ source: 'dun', id: fid }, { hover: true });
             map.getCanvas().style.cursor = 'pointer';
           });
-
           map.on('mouseleave', 'dun-fill', () => {
             if (hoveredDunId !== null) {
-              map.setFeatureState(
-                { source: 'dun', id: hoveredDunId },
-                { hover: false },
-              );
+              map.setFeatureState({ source: 'dun', id: hoveredDunId }, { hover: false });
               hoveredDunId = null;
             }
             map.getCanvas().style.cursor = '';
           });
+
+          // ==== DM BUBBLE INTERACTIONS (Phase 3) ====
+          if (dmCentroids) {
+            let hoveredDmId: string | null = null;
+
+            // DM hover → tooltip
+            map.on('mousemove', 'dm-bubble', (e) => {
+              if (!e.features?.length) return;
+              const props = e.features[0].properties as unknown as DMProperties;
+              const dmCode = props.dm_code;
+
+              if (hoveredDmId !== null && hoveredDmId !== dmCode) {
+                map.setFeatureState({ source: 'dm', id: hoveredDmId }, { hover: false });
+              }
+              hoveredDmId = dmCode;
+              map.setFeatureState({ source: 'dm', id: dmCode }, { hover: true });
+              map.getCanvas().style.cursor = 'pointer';
+
+              // Build tooltip HTML
+              const dmName = dmCode.replace(/^[\d.]+\s*/, '');
+              const tooltipHTML = `
+                <div style="font-family:system-ui,sans-serif;padding:6px 8px;">
+                  <div style="font-weight:600;font-size:12px;color:#0f172a;">${dmName}</div>
+                  <div style="font-size:11px;color:#64748b;margin-top:2px;">
+                    ${props.total_voters.toLocaleString()} voters
+                  </div>
+                </div>
+              `;
+              popup.setLngLat(e.lngLat).setHTML(tooltipHTML).addTo(map);
+            });
+
+            map.on('mouseleave', 'dm-bubble', () => {
+              if (hoveredDmId !== null) {
+                map.setFeatureState({ source: 'dm', id: hoveredDmId }, { hover: false });
+                hoveredDmId = null;
+              }
+              map.getCanvas().style.cursor = '';
+              popup.remove();
+            });
+
+            // DM click → detailed popup
+            map.on('click', 'dm-bubble', (e) => {
+              if (!e.features?.length) return;
+              const props = e.features[0].properties as unknown as DMProperties;
+              popup.setLngLat(e.lngLat).setHTML(buildDMPopupHTML(props)).addTo(map);
+            });
+          }
 
           setLoading(false);
         });
@@ -538,20 +608,15 @@ export default function MapDashboard() {
   }, []);
 
   // ------- Update choropleth when metric changes -------
-  const updateMetric = useCallback(
-    (metricId: string) => {
-      const map = mapRef.current;
-      if (!map) return;
-      const scale = getScaleById(metricId);
-      const colorExpr = buildColorExpression(scale.property, scale.stops);
-      map.setPaintProperty('parliament-fill', 'fill-color', colorExpr);
-    },
-    [],
-  );
+  const updateMetric = useCallback((metricId: string) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const scale = getScaleById(metricId);
+    const colorExpr = buildColorExpression(scale.property, scale.stops);
+    map.setPaintProperty('parliament-fill', 'fill-color', colorExpr);
+  }, []);
 
-  useEffect(() => {
-    updateMetric(activeMetric);
-  }, [activeMetric, updateMetric]);
+  useEffect(() => { updateMetric(activeMetric); }, [activeMetric, updateMetric]);
 
   const currentScale = getScaleById(activeMetric);
 
@@ -559,81 +624,96 @@ export default function MapDashboard() {
     <div className="relative w-full h-screen flex overflow-hidden bg-slate-100">
       {/* ======= Sidebar ======= */}
       <aside
-        className={`${
-          sidebarOpen ? 'w-72' : 'w-0'
-        } transition-all duration-300 bg-white border-r border-slate-200 flex-shrink-0 overflow-hidden flex flex-col`}
+        className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 bg-white border-r border-slate-200 flex-shrink-0 overflow-hidden flex flex-col`}
       >
         {/* Header */}
         <div className="p-4 border-b border-slate-200 flex-shrink-0">
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-            SLGRVTRS
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Selangor Voter Registry — 3,971,650 voters
-          </p>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">SLGRVTRS</h1>
+          <p className="text-xs text-slate-500 mt-0.5">Selangor Voter Registry — 3,971,650 voters</p>
         </div>
 
         {/* Layer Toggles */}
         <div className="p-4 border-b border-slate-200 flex-shrink-0">
-          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">
-            Layers
-          </label>
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">Layers</label>
           <div className="space-y-1.5">
             <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={layers.parliament}
-                onChange={() => toggleLayer('parliament')}
-                className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-              />
+              <input type="checkbox" checked={layers.parliament} onChange={() => toggleLayer('parliament')} className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
               <span className="text-xs text-slate-700 group-hover:text-slate-900">Parliament (22)</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={layers.dun}
-                onChange={() => toggleLayer('dun')}
-                className="w-3.5 h-3.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
-              />
+              <input type="checkbox" checked={layers.dun} onChange={() => toggleLayer('dun')} className="w-3.5 h-3.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer" />
               <span className="text-xs text-slate-700 group-hover:text-slate-900">DUN (56)</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={layers.dm}
-                onChange={() => toggleLayer('dm')}
-                disabled
-                className="w-3.5 h-3.5 rounded border-slate-300 text-slate-400 focus:ring-slate-400 cursor-not-allowed opacity-40"
-              />
-              <span className="text-xs text-slate-400">DM Centroids (Phase 3)</span>
+              <input type="checkbox" checked={layers.dm} onChange={() => toggleLayer('dm')} className="w-3.5 h-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer" />
+              <span className="text-xs text-slate-700 group-hover:text-slate-900">DM Bubbles (945)</span>
             </label>
           </div>
         </div>
 
         {/* Metric Selector */}
         <div className="p-4 border-b border-slate-200 flex-shrink-0">
-          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-            Choropleth Metric
-          </label>
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Choropleth Metric</label>
           <select
             value={activeMetric}
             onChange={(e) => setActiveMetric(e.target.value)}
             className="mt-1.5 w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           >
             {COLOR_SCALES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
+              <option key={s.id} value={s.id}>{s.label}</option>
             ))}
           </select>
         </div>
 
-        {/* Legend — using reusable component */}
+        {/* DM Filters (Phase 3) */}
+        <div className="p-4 border-b border-slate-200 flex-shrink-0">
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">DM Filters</label>
+          <div className="space-y-2">
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1">Gender</label>
+              <div className="flex gap-1">
+                {(['all', 'male', 'female'] as const).map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGenderFilter(g)}
+                    className={`flex-1 text-[11px] py-1 px-2 rounded-md border transition-colors ${
+                      genderFilter === g
+                        ? 'bg-rose-50 border-rose-300 text-rose-700 font-medium'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    {g === 'all' ? 'All' : g === 'male' ? 'Male' : 'Female'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-1">Race</label>
+              <div className="flex gap-1">
+                {(['all', 'malay', 'chinese', 'indian'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRaceFilter(r)}
+                    className={`flex-1 text-[11px] py-1 px-1.5 rounded-md border transition-colors ${
+                      raceFilter === r
+                        ? 'bg-rose-50 border-rose-300 text-rose-700 font-medium'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    {r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Legend */}
         <div className="p-4 flex-shrink-0">
           <Legend scale={currentScale} />
         </div>
 
-        {/* Drill-down breadcrumb (when active) */}
+        {/* Drill-down breadcrumb */}
         {drilledParl && (
           <div className="px-4 pb-3 flex-shrink-0">
             <button
@@ -645,9 +725,7 @@ export default function MapDashboard() {
               </svg>
               Back to Selangor overview
             </button>
-            <p className="text-[10px] text-slate-500 mt-1 px-2">
-              Showing DUNs under {drilledParl}
-            </p>
+            <p className="text-[10px] text-slate-500 mt-1 px-2">Showing DUNs under {drilledParl}</p>
           </div>
         )}
 
@@ -658,59 +736,35 @@ export default function MapDashboard() {
             ElectionData.MY. Not official SPR boundaries.
           </p>
           <p className="text-[10px] text-slate-400 mt-1">
-            Phase 2 — Parliament (22) + DUN (56) + Drill-Down + Toggles
+            Phase 3 — Parliament + DUN + DM Bubbles + Race/Gender Filters
           </p>
         </div>
       </aside>
 
       {/* ======= Map ======= */}
       <main className="flex-1 relative">
-        {/* Sidebar toggle */}
         <button
           onClick={() => setSidebarOpen((o) => !o)}
           className="absolute top-3 left-3 z-10 bg-white rounded-md shadow-md p-2 hover:bg-slate-50 transition-colors border border-slate-200"
           aria-label="Toggle sidebar"
         >
-          <svg
-            className="w-4 h-4 text-slate-700"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {sidebarOpen ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
             ) : (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 5l7 7-7 7M5 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             )}
           </svg>
         </button>
-
-        {/* Map container */}
         <div ref={containerRef} className="w-full h-full" />
-
-        {/* Loading overlay */}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-100/90 z-20">
             <div className="flex items-center gap-3">
               <div className="animate-spin h-6 w-6 border-3 border-emerald-500 border-t-transparent rounded-full" />
-              <span className="text-sm text-slate-600">
-                Loading Selangor Voter Map…
-              </span>
+              <span className="text-sm text-slate-600">Loading Selangor Voter Map...</span>
             </div>
           </div>
         )}
-
-        {/* Error overlay */}
         {error && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-100/95 z-20">
             <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm text-center">
@@ -734,69 +788,32 @@ function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean = false): s
       <div style="font-weight:700; font-size:15px; color:#0f172a;">
         ${p.code_parlimen} — ${p.name}
       </div>
-      <div style="font-size:11px; color:#64748b; margin-bottom:8px;">
-        Parliamentary Constituency
-      </div>
+      <div style="font-size:11px; color:#64748b; margin-bottom:8px;">Parliamentary Constituency</div>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Total Voters</strong></td>
-          <td style="text-align:right;font-weight:600;">${p.total_voters.toLocaleString()}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Male</strong></td>
-          <td style="text-align:right;">${p.male_pct}% (${p.male.toLocaleString()})</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Female</strong></td>
-          <td style="text-align:right;">${p.female_pct}% (${p.female.toLocaleString()})</td>
-        </tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Total Voters</strong></td><td style="text-align:right;font-weight:600;">${p.total_voters.toLocaleString()}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Male</strong></td><td style="text-align:right;">${p.male_pct}% (${p.male.toLocaleString()})</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Female</strong></td><td style="text-align:right;">${p.female_pct}% (${p.female.toLocaleString()})</td></tr>
       </table>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Malay</strong></td>
-          <td style="text-align:right;">${p.malay_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Chinese</strong></td>
-          <td style="text-align:right;">${p.chinese_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Indian</strong></td>
-          <td style="text-align:right;">${p.indian_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Others</strong></td>
-          <td style="text-align:right;">${p.other_pct}%</td>
-        </tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Malay</strong></td><td style="text-align:right;">${p.malay_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Chinese</strong></td><td style="text-align:right;">${p.chinese_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Indian</strong></td><td style="text-align:right;">${p.indian_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Others</strong></td><td style="text-align:right;">${p.other_pct}%</td></tr>
       </table>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Mean Age</strong></td>
-          <td style="text-align:right;">${p.age_mean}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Median Age</strong></td>
-          <td style="text-align:right;">${p.age_median}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Contact %</strong></td>
-          <td style="text-align:right;">${p.contact_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>DUNs</strong></td>
-          <td style="text-align:right;">${p.child_dun_count}</td>
-        </tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Mean Age</strong></td><td style="text-align:right;">${p.age_mean}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Median Age</strong></td><td style="text-align:right;">${p.age_median}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Contact %</strong></td><td style="text-align:right;">${p.contact_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>DUNs</strong></td><td style="text-align:right;">${p.child_dun_count}</td></tr>
       </table>
       ${isDrillDown ? `
       <div style="font-size:10px;color:#059669;margin-top:8px;font-weight:500;">
         Zoomed to ${p.child_dun_count} DUN seat${p.child_dun_count > 1 ? 's' : ''} — click DUNs for details
-      </div>
-      ` : ''}
-    </div>
-  `;
+      </div>` : ''}
+    </div>`;
 }
 
 function buildDUNPopupHTML(p: DUNProperties): string {
@@ -809,83 +826,69 @@ function buildDUNPopupHTML(p: DUNProperties): string {
       <div style="font-weight:700; font-size:14px; color:#004d40;">
         ${p.code_dun} — ${dunName}
       </div>
-      <div style="font-size:11px; color:#64748b; margin-bottom:6px;">
-        State Legislative Assembly
-      </div>
+      <div style="font-size:11px; color:#64748b; margin-bottom:6px;">State Legislative Assembly</div>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Parent Parliament</strong></td>
-          <td style="text-align:right;">${p.parent_parl} ${parlName}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>DUN Code</strong></td>
-          <td style="text-align:right;">${p.code_dun}</td>
-        </tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Parent Parliament</strong></td><td style="text-align:right;">${p.parent_parl} ${parlName}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>DUN Code</strong></td><td style="text-align:right;">${p.code_dun}</td></tr>
       </table>
       ${hasStats ? `
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Total Voters</strong></td>
-          <td style="text-align:right;font-weight:600;">${p.total_voters!.toLocaleString()}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Male</strong></td>
-          <td style="text-align:right;">${p.male_pct}% (${p.male!.toLocaleString()})</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Female</strong></td>
-          <td style="text-align:right;">${p.female_pct}% (${p.female!.toLocaleString()})</td>
-        </tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Total Voters</strong></td><td style="text-align:right;font-weight:600;">${p.total_voters!.toLocaleString()}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Male</strong></td><td style="text-align:right;">${p.male_pct}% (${p.male!.toLocaleString()})</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Female</strong></td><td style="text-align:right;">${p.female_pct}% (${p.female!.toLocaleString()})</td></tr>
       </table>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Malay</strong></td>
-          <td style="text-align:right;">${p.malay_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Chinese</strong></td>
-          <td style="text-align:right;">${p.chinese_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Indian</strong></td>
-          <td style="text-align:right;">${p.indian_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Others</strong></td>
-          <td style="text-align:right;">${p.other_pct}%</td>
-        </tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Malay</strong></td><td style="text-align:right;">${p.malay_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Chinese</strong></td><td style="text-align:right;">${p.chinese_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Indian</strong></td><td style="text-align:right;">${p.indian_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Others</strong></td><td style="text-align:right;">${p.other_pct}%</td></tr>
       </table>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
       <table style="width:100%;font-size:12px;color:#334155;">
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Mean Age</strong></td>
-          <td style="text-align:right;">${p.age_mean}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Median Age</strong></td>
-          <td style="text-align:right;">${p.age_median}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Contact %</strong></td>
-          <td style="text-align:right;">${p.contact_pct}%</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>DMs</strong></td>
-          <td style="text-align:right;">${p.dm_count}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px 2px 0;"><strong>Localities</strong></td>
-          <td style="text-align:right;">${p.locality_count}</td>
-        </tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Mean Age</strong></td><td style="text-align:right;">${p.age_mean}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Median Age</strong></td><td style="text-align:right;">${p.age_median}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Contact %</strong></td><td style="text-align:right;">${p.contact_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>DMs</strong></td><td style="text-align:right;">${p.dm_count}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Localities</strong></td><td style="text-align:right;">${p.locality_count}</td></tr>
       </table>
       ` : `
-      <div style="font-size:10px;color:#94a3b8;margin-top:8px;">
-        No voter statistics available for this seat.
-      </div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:8px;">No voter statistics available for this seat.</div>
       `}
-    </div>
-  `;
+    </div>`;
+}
+
+function buildDMPopupHTML(p: DMProperties): string {
+  const dmName = p.dm_code.replace(/^[\d.]+\s*/, '');
+  const dunName = p.dun_code.replace(/^[\d.]+\s*/, '');
+
+  return `
+    <div style="font-family: system-ui, sans-serif;">
+      <div style="font-weight:700; font-size:13px; color:#6d1a36;">
+        ${dmName}
+      </div>
+      <div style="font-size:10px; color:#64748b; margin-bottom:6px;">
+        Daerah Mengundi · ${p.dun_code} ${dunName}
+      </div>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
+      <table style="width:100%;font-size:12px;color:#334155;">
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Total Voters</strong></td><td style="text-align:right;font-weight:600;">${p.total_voters.toLocaleString()}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Male</strong></td><td style="text-align:right;">${p.male_pct}% (${p.male.toLocaleString()})</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Female</strong></td><td style="text-align:right;">${p.female_pct}% (${p.female.toLocaleString()})</td></tr>
+      </table>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
+      <table style="width:100%;font-size:12px;color:#334155;">
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Malay</strong></td><td style="text-align:right;">${p.malay_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Chinese</strong></td><td style="text-align:right;">${p.chinese_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Indian</strong></td><td style="text-align:right;">${p.indian_pct}%</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Others</strong></td><td style="text-align:right;">${p.other_pct}%</td></tr>
+      </table>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;"/>
+      <table style="width:100%;font-size:12px;color:#334155;">
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Mean Age</strong></td><td style="text-align:right;">${p.age_mean}</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;"><strong>Contact %</strong></td><td style="text-align:right;">${p.contact_pct}%</td></tr>
+      </table>
+    </div>`;
 }

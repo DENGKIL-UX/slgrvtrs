@@ -17,7 +17,7 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 
 - **Layer 1**: Parliament constituency boundaries (22 polygons) — click to see aggregated stats, choropleth by 7 metrics  ✅
 - **Layer 2**: DUN (State Assembly) boundaries (56 polygons) — drill-down from Parliament, click for detailed demographics  ✅
-- **Layer 3**: DM (Voting District) centroids/bubbles (~945 points) — proportional to voter count  ⬜ Phase 3
+- **Layer 3**: DM (Voting District) centroids/bubbles (945 points) — proportional to voter count, race/gender filters  ✅
 - **Layer 4** (future): Individual geocoded voter points with clustering (3.97M points)
 
 ### Current Status
@@ -26,7 +26,7 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 |-------|-------------|--------|----------|
 | Phase 1 | Parliament choropleth, 7 metrics, legend, popup, hover | **COMPLETE** | ✅ Yes |
 | Phase 2 | DUN drill-down, zoom visibility, toggles, DUN popup | **COMPLETE** | ✅ Yes |
-| Phase 3 | DM bubble visualization, centroid generation, filters | Not started | — |
+| Phase 3 | DM bubble visualization, centroid generation, filters | **COMPLETE** | ✅ Yes |
 | Phase 4 | Responsive, error boundaries, Lighthouse audit | Not started | — |
 | Phase 5 | Individual voter points via PMTiles + R2 | Future | — |
 
@@ -103,7 +103,12 @@ public/stats/dun.json  → 56 records, keyed by voter_prefix ("01"-"56")
     malay_pct, chinese_pct, indian_pct, other_pct,
     age_mean, age_median, contact_pct, dm_count, locality_count }
 
-public/stats/dm.json  → (Phase 3) 945 records keyed by dm_code
+public/stats/dm.json  → 945 records keyed by dm_code (e.g. "01.SUNGAI AIR TAWAR")
+  { dm_code, dun_code, dun_prefix, code_parlimen, total_voters, male, female,
+    male_pct, female_pct, malay_pct, chinese_pct, indian_pct, other_pct,
+    age_mean, age_median, contact_pct,
+    male_malay, male_chinese, male_indian, male_other,
+    female_malay, female_chinese, female_indian, female_other }
 ```
 
 ### 3.2 Boundary Files
@@ -113,7 +118,7 @@ public/stats/dm.json  → (Phase 3) 945 records keyed by dm_code
 | Parliament boundaries | MECo (post-2018), filtered to Selangor | GeoJSON | 183 KB | `public/boundaries/selangor_parliament.geojson` |
 | DUN boundaries | MECo (post-2018), filtered to Selangor | GeoJSON | 215 KB | `public/boundaries/selangor_dun.geojson` |
 | Selangor outline | Generated via `scripts/generate_outline.py` | GeoJSON MultiPolygon | 178 KB | `public/boundaries/selangor_outline.geojson` |
-| DM centroids | (Phase 3) Python Shapely grid-in-polygon | GeoJSON Points | ~200 KB (est) | `public/boundaries/dm_centroids.geojson` |
+| DM centroids | Python Shapely grid-in-polygon | GeoJSON Points | 849 KB | `public/boundaries/dm_centroids.geojson` |
 
 ### 3.3 Data-Join Keys
 
@@ -123,7 +128,7 @@ The GeoJSON features use `voter_prefix` (3-digit zero-padded string) as the join
 |-------|-----------------|---------|---------------|-------|
 | Parliament | `voter_prefix` | `"092"` | `parliament.json["092"]` | ✅ 100% (22/22) |
 | DUN | `voter_prefix` | `"01"` | `dun.json["01"]` | ✅ 100% (56/56) |
-| DM | (Phase 3) `dm_code` | `"DM01"` | `dm.json["DM01"]` | Pending |
+| DM | `dm_code` (in properties) | `"01.BANDAR COUNTRY HOME 1"` | Embedded in GeoJSON properties | ✅ 100% (945/945) |
 
 The join is performed client-side by `join-stats.ts` which merges stats into GeoJSON feature properties before adding the source to the map.
 
@@ -169,25 +174,27 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 | Drill-down | Click Parliament → filter DUNs by `parent_parl`, flyTo zoom 10.5 |
 | Back button | "← Back to Selangor overview" resets filter + zoom |
 
-### Layer 3: DM Centroids/Bubbles (945 points) — Phase 3
+### Layer 3: DM Centroids/Bubbles (945 points) ✅
 
 | Property | Value |
 |----------|-------|
 | Type | `circle` |
 | Source | `public/boundaries/dm_centroids.geojson` |
-| Features | ~945 points |
-| Size | Proportional to `sqrt(voter_count)` (area-proportional) |
-| Color | By parent DUN color or selected metric |
-| Interaction | Click → DM stats, hover → tooltip with name + count |
-| Zoom range | [11, 18] |
+| Features | 945 points (all within DUN boundaries) |
+| Size | `interpolate` on `total_voters`, 3px (2K voters) → 20px (15K voters) |
+| Color | Red sequential (`#fbb4ae` → `#b40426`) by `total_voters` |
+| Interaction | Hover → tooltip (name + count), click → detailed popup (14 fields) |
+| Zoom range | [11, 18] (`minzoom: 11`) |
+| Hover highlight | `setFeatureState({ hover: true })` on ring layer |
+| Filters | Gender (All/Male/Female) + Race (All/Malay/Chinese/Indian) via sidebar buttons |
 
-**DM Centroid Generation** (Strategy C selected):
+**DM Centroid Generation** (Strategy C — Shapely grid-in-polygon):
 
 ```python
-# scripts/generate_dm_centroids.py (Phase 3)
-# Use Python Shapely to create a grid within each DUN boundary,
-# then assign DM centroids to grid points.
-# Fast, deterministic, good for visual prototype.
+# scripts/generate_dm_centroids.py
+# Grid spacing: 0.004 degrees (~350m at latitude 3N)
+# Falls back to 0.002 spacing for dense DUNs
+# Stats embedded directly in GeoJSON properties (no client-side join needed)
 ```
 
 ### Layer 4: Individual Voter Points (future) — Phase 5
@@ -226,7 +233,7 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 │ ☑ Parl   │        Hover highlight                   │
 │ ☑ DUN    │                                           │
 │ ☐ DM     │                                           │
-│ (Phase 3)│                                           │
+│ (945)    │                                           │
 │          │                                           │
 │ [Back]   │                                           │
 │ (drill)  │                                           │
@@ -251,6 +258,10 @@ Defined in `src/lib/map/color-scales.ts` as `PARL_COLOR_SCALES` array.
 
 | Interaction | Trigger | Behavior |
 |-------------|--------|----------|
+| DM hover | `mousemove` on `dm-bubble` | Tooltip (name + count), `setFeatureState` hover ring, cursor pointer |
+| DM click | `click` on `dm-bubble` | Popup with 14-field demographics |
+| Gender filter | 3 buttons (All/Male/Female) | Filter DM bubbles by gender sub-counts |
+| Race filter | 4 buttons (All/Malay/Chinese/Indian) | Filter DM bubbles by race sub-counts |
 | Parliament hover | `mousemove` on `parliament-fill` | `setFeatureState` hover=true, cursor pointer |
 | Parliament click | `click` on `parliament-fill` | Popup with 12-field stats + filter DUNs by `parent_parl` + flyTo zoom 10.5 |
 | DUN hover | `mousemove` on `dun-fill` | `setFeatureState` hover=true, cursor pointer |
@@ -275,7 +286,7 @@ Defined in `src/lib/map/color-scales.ts` as `PARL_COLOR_SCALES` array.
 | Boundaries | GeoJSON | — | Electoral boundaries from `public/boundaries/` |
 | Workers | @opennextjs/cloudflare | 1.20.1 | Next.js → CF Workers adapter |
 | CLI | wrangler | 4.112.0 | CF build/deploy |
-| Database | Cloudflare D1 | (Phase 3) | Edge SQLite for DM queries |
+| Database | Cloudflare D1 | (Phase 4+) | Edge SQLite for DM queries |
 | Storage | Cloudflare R2 | (Phase 5) | PMTiles for voter points |
 | Hosting | Cloudflare Workers | Free tier | 300+ edge nodes, unlimited bandwidth |
 
@@ -302,10 +313,12 @@ slgrvtrs/
 │   │   ├── boundaries/
 │   │   │   ├── selangor_parliament.geojson  # 22 features, 183 KB
 │   │   │   ├── selangor_dun.geojson         # 56 features, 215 KB
-│   │   │   └── selangor_outline.geojson     # 1 MultiPolygon, 178 KB
+│   │   │   ├── selangor_outline.geojson     # 1 MultiPolygon, 178 KB
+│   │   │   └── dm_centroids.geojson        # 945 points, 849 KB (Phase 3)
 │   │   ├── stats/
 │   │   │   ├── parliament.json              # 22 records, 8.2 KB
-│   │   │   └── dun.json                     # 56 records, 24 KB
+│   │   │   ├── dun.json                     # 56 records, 24 KB
+│   │   │   └── dm.json                      # 945 records, 429 KB (Phase 3)
 │   │   ├── maplibre-gl-worker.mjs          # MapLibre ESM worker, 19 KB
 │   │   └── maplibre-gl-shared.mjs          # MapLibre shared module, 471 KB
 │   ├── migrations/
@@ -321,6 +334,8 @@ slgrvtrs/
 ├── scripts/
 │   ├── analyze_xlsx.py                    # Parliament aggregation from xlsx
 │   ├── build_dun_stats.py                 # DUN aggregation from xlsx
+│   ├── build_dm_stats.py                  # DM aggregation from xlsx (Phase 3)
+│   ├── generate_dm_centroids.py           # Shapely grid-in-polygon DM centroids (Phase 3)
 │   ├── build_d1_load.py                   # Generate D1 SQL from JSON stats
 │   ├── filter_dun.py                      # Filter MECo GeoJSON to Selangor DUNs
 │   └── generate_outline.py                # Generate Selangor outline GeoJSON
@@ -336,7 +351,7 @@ slgrvtrs/
 
 | Planned | Actual | Reason |
 |---------|--------|--------|
-| `components/map/ParliamentLayer.tsx` | All layers in `MapDashboard.tsx` | Single-file is simpler for 890 lines; split when DM layer adds complexity |
+| `components/map/ParliamentLayer.tsx` | All layers in `MapDashboard.tsx` | Single-file approach sustained through Phase 3; refactor in Phase 4 if needed |
 | `components/sidebar/MetricSelector.tsx` | Inline in `MapDashboard.tsx` | Sidebar is tightly coupled to map state |
 | `components/charts/GenderBar.tsx` etc. | HTML tables in popup | Chart libraries not needed for tabular demographics |
 | `api/stats/parliament/route.ts` | Static JSON from `public/` | No server needed — data is pre-computed and static |
@@ -386,44 +401,50 @@ python scripts/filter_dun.py
 python scripts/build_d1_load.py
 ```
 
-### 8.5 DM Aggregation (Phase 3)
+### 8.5 DM Aggregation
 
 ```bash
-# (To be created)
-# Reads 4 xlsx files, aggregates by DM code
+# scripts/build_dm_stats.py (Phase 3)
+# Reads 4 xlsx files via pandas (one at a time for memory efficiency),
+# aggregates by DM_CODE with gender x race sub-counts for filtering
 # Output: public/stats/dm.json (945 records keyed by dm_code)
+python scripts/build_dm_stats.py
 ```
 
-### 8.6 DM Centroid Generation (Phase 3)
+### 8.6 DM Centroid Generation
 
 ```bash
-# (To be created: scripts/generate_dm_centroids.py)
+# scripts/generate_dm_centroids.py (Phase 3)
 # Strategy C: Python Shapely grid-in-polygon within DUN boundaries
-# Output: public/boundaries/dm_centroids.geojson (945 Point features)
+# Grid spacing: 0.004 deg (~350m), auto-tightens to 0.002 for dense DUNs
+# Stats embedded directly in GeoJSON properties (no client-side join)
+# Output: public/boundaries/dm_centroids.geojson (945 Point features, 849 KB)
+python scripts/generate_dm_centroids.py
 ```
 
 ---
 
 ## 9. Performance Strategy
 
-### 9.1 Current (Phase 1-2)
+### 9.1 Current (Phase 1-3)
 
 | Asset | Size | Load Strategy |
 |-------|------|--------------|
 | Parliament GeoJSON | 183 KB | `fetch()` at bootstrap, add as source |
 | DUN GeoJSON | 215 KB | `fetch()` at bootstrap, add as source |
 | Outline GeoJSON | 178 KB | `fetch()` at bootstrap, graceful `catch(() => null)` |
+| DM Centroids GeoJSON | 849 KB | `fetch()` at bootstrap (stats embedded in properties) |
 | Parliament stats | 8.2 KB | `fetch()` at bootstrap |
 | DUN stats | 24 KB | `fetch()` at bootstrap |
 | MapLibre worker | 19 KB | Loaded by MapLibre via `setWorkerUrl()` |
 | MapLibre shared | 471 KB | Imported by worker via ESM `import` |
-| **Total page load** | **~1 MB** | All static, cached by CDN |
+| **Total page load** | **~1.9 MB** | All static, cached by CDN |
 
-22 + 56 = 78 polygons — trivially small for MapLibre. GeoJSON source is fine; no vector tiles needed.
+22 + 56 = 78 polygons + 945 circle features — still small for MapLibre. GeoJSON source is fine; no vector tiles needed.
 
 ### 9.2 Phase 3: DM Centroids
 
-945 circle features — also small. GeoJSON source is fine. Use `circle-radius` data-driven styling for proportional sizing.
+945 circle features with embedded stats (849 KB). GeoJSON source is fine — no vector tiles needed. Proportional circle-radius via `interpolate` expression. Gender/race filtering via MapLibre `setFilter()` on sub-count fields.
 
 ### 9.3 Phase 5: 3.97M Voter Points
 
@@ -521,15 +542,16 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] Add DUN label layer (`code_dun`, `minzoom: 9`)
 - [x] Deploy to Cloudflare Workers
 
-### Phase 3: DM Visualization — Next
-- [ ] Run Python DM aggregation → `stats/dm.json` (945 records keyed by `dm_code`)
-- [ ] Generate DM centroids (Strategy C: Python Shapely grid-in-polygon → `dm_centroids.geojson`)
-- [ ] Implement DM bubble layer (Layer 3) with proportional sizing
-- [ ] DM tooltip with voter count and name
-- [ ] Race/gender filter controls in sidebar
-- [ ] Optionally: Provision D1 database and create DM API route
+### Phase 3: DM Visualization — COMPLETE ✅
+- [x] Run Python DM aggregation → `stats/dm.json` (945 records keyed by `dm_code`)
+- [x] Generate DM centroids (Strategy C: Python Shapely grid-in-polygon → `dm_centroids.geojson`)
+- [x] Implement DM bubble layer (Layer 3) with proportional sizing (interpolate 3px–20px)
+- [x] DM hover tooltip with name + voter count
+- [x] DM click popup with 14-field demographics
+- [x] Race/gender filter controls in sidebar (3 gender + 4 race buttons)
+- [ ] Optionally: Provision D1 database and create DM API route (deferred)
 
-### Phase 4: Polish & Deploy
+### Phase 4: Polish & Deploy — Next
 - [ ] Responsive design (mobile sidebar collapse, touch interactions)
 - [ ] Refactor `page.tsx` to Server Component (move `'use client'` to MapDashboard only)
 - [ ] Update `tsconfig.json` target to ES2022 (MapLibre v6 recommendation)
