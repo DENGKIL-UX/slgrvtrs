@@ -13,7 +13,7 @@
 |-------|-------------|---------------|-------------------|-----------------|------|
 | **Phase 1** | Parliament choropleth map | Yes | Static Pages | None | None |
 | **Phase 2** | DUN drill-down + toggles | Yes | Static Pages | None | None |
-| **Phase 3** | DM bubble visualization | Yes | Static + D1 | Add D1 for DM queries | Low |
+| **Phase 3** | DM bubble visualization, DUN choropleth (9 metrics), race/gender filters | Yes | Static + D1 | Add D1 for DM queries | Low |
 | **Phase 4** | Polish & deploy | Yes | Static Pages + Workers | Minor config changes | None |
 | **Phase 5** | Individual voter points (PMTiles) | Yes | Static + R2 | Add R2 for PMTiles | Low |
 
@@ -68,13 +68,16 @@
 
 ---
 
-## Phase 3: DM Visualization
+## Phase 3: DM Visualization — COMPLETE
 
 ### What it does
-- DM bubble layer (945 DMs) with proportional sizing
-- DM stats from Python aggregation pipeline
+- DM bubble layer (945 DMs) with proportional sizing (interpolate 3px–20px on 0–27K voters)
+- DM stats from Python aggregation pipeline (gender×race sub-counts)
 - DM centroids from Shapely grid-in-polygon
-- Race/gender filter controls in sidebar
+- Race/gender filter controls in sidebar (paint-property-based, not setFilter)
+- DUN layer upgraded from static teal fill to **dynamic choropleth** with 9 of 10 metrics
+- Legend auto-switches between Parliament/DUN color scales at zoom >= 9.5
+- 10 Parliament metrics + 9 DUN metrics defined in `color-scales.ts` (DUN excludes contact_pct)
 
 ### Why it works on Cloudflare
 - **Static mode** (no D1): DM centroids + stats can be pre-computed and served as static JSON, exactly like parliament/dun stats. ~945 DMs × ~200 bytes = ~190 KB. No problem.
@@ -227,7 +230,7 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 **All 5 phases are fully compatible with Cloudflare deployment on the free tier.**
 
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
-- Phase 3: **Zero changes** for static mode; uncomment D1 binding + add API routes for D1 mode
+- Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters (all static, zero CF changes needed)
 - Phase 4: Cloudflare is the **intended deployment target**
 - Phase 5: R2 + PMTiles is the **standard pattern** for this use case
 

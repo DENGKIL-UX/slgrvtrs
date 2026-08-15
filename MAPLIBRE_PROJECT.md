@@ -15,8 +15,8 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 
 ### Core Capabilities
 
-- **Layer 1**: Parliament constituency boundaries (22 polygons) — click to see aggregated stats, choropleth by 7 metrics  ✅
-- **Layer 2**: DUN (State Assembly) boundaries (56 polygons) — drill-down from Parliament, click for detailed demographics  ✅
+- **Layer 1**: Parliament constituency boundaries (22 polygons) — click to see aggregated stats, choropleth by 10 metrics  ✅
+- **Layer 2**: DUN (State Assembly) boundaries (56 polygons) — drill-down from Parliament, click for detailed demographics, choropleth by 9 of 10 metrics  ✅
 - **Layer 3**: DM (Voting District) centroids/bubbles (945 points) — proportional to voter count, race/gender filters  ✅
 - **Layer 4** (future): Individual geocoded voter points with clustering (3.97M points)
 
@@ -24,9 +24,9 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 
 | Phase | Description | Status | Deployed |
 |-------|-------------|--------|----------|
-| Phase 1 | Parliament choropleth, 7 metrics, legend, popup, hover | **COMPLETE** | ✅ Yes |
+| Phase 1 | Parliament choropleth, 10 metrics, legend, popup, hover | **COMPLETE** | ✅ Yes |
 | Phase 2 | DUN drill-down, zoom visibility, toggles, DUN popup | **COMPLETE** | ✅ Yes |
-| Phase 3 | DM bubble visualization, centroid generation, filters | **COMPLETE** | ✅ Yes |
+| Phase 3 | DM bubble visualization, centroid generation, filters, DUN choropleth (9 metrics) | **COMPLETE** | ✅ Yes |
 | Phase 4 | Responsive, error boundaries, Lighthouse audit | Not started | — |
 | Phase 5 | Individual voter points via PMTiles + R2 | Future | — |
 
@@ -167,12 +167,13 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 | Type | `fill` + `line` + `symbol` (label) |
 | Source | `public/boundaries/selangor_dun.geojson` |
 | Features | 56 polygons |
-| Color | Static teal fill (`#b2dfdb`, 0.5 opacity) |
+| Color | Choropleth by selected metric (9 of 10 — `contact_pct` excluded because DUN value is constant 76.84%) |
 | Interaction | Click → popup (16 fields), hover → highlight via feature-state |
 | Zoom range | [8.5, ∞] (`minzoom: 8.5` on fill/border, `minzoom: 9` on label) |
 | Popup | DUN name, code, parent Parliament, total voters, M/F %, race %, age, contact %, DM count, locality count |
 | Drill-down | Click Parliament → filter DUNs by `parent_parl`, flyTo zoom 10.5 |
 | Back button | "← Back to Selangor overview" resets filter + zoom |
+| DUN color scales | Defined in `DUN_COLOR_SCALES` in `color-scales.ts` — tuned stop values for DUN data ranges (e.g., total_voters: 20K–134K vs Parliament 50K–340K) |
 
 ### Layer 3: DM Centroids/Bubbles (945 points) ✅
 
@@ -226,7 +227,8 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 │          │  ┌─────────────────────────┐              │
 │ Metric   │  │ Legend / Color Scale    │              │
 │ selector │  │ (dynamic, updates with  │              │
-│ (7 opts) │  │  metric selection)      │              │
+│ (10 opts)│  │  metric; auto-switches  │              │
+│          │  │  Parl/DUN labels ≥z9.5) │              │
 │          │  └─────────────────────────┘              │
 │ Layer    │                                           │
 │ toggles  │        Popup on click                    │
@@ -242,17 +244,26 @@ The join is performed client-side by `join-stats.ts` which merges stats into Geo
 
 ### 5.2 Color Schemes (Implemented)
 
-| Metric | Palette | Type | Range |
-|--------|---------|------|-------|
-| Total voters | YlOrRd | Sequential | min → max of dataset |
-| Malay % | Blues | Sequential | 0% → 100% |
-| Chinese % | Oranges | Sequential | 0% → 100% |
-| Indian % | Greens | Sequential | 0% → 100% |
-| Age (mean) | Viridis | Sequential | min → max age |
-| Contact % | PuBu | Sequential | 0% → 100% |
-| Female % | RdBu (reversed) | Sequential | 0% → 100% |
+10 choropleth metrics defined in `src/lib/map/color-scales.ts` with separate Parliament (`PARL_COLOR_SCALES`) and DUN (`DUN_COLOR_SCALES`) stop values. All use 5-stop `interpolate` expressions for smooth gradients.
 
-Defined in `src/lib/map/color-scales.ts` as `PARL_COLOR_SCALES` array.
+| # | Metric | Property | Palette | Type | Parliament Stops | DUN Stops | DUN Applicable? |
+|---|--------|----------|---------|------|-----------------|-----------|:--------------:|
+| 1 | Total Voters | `total_voters` | YlGnBu | Sequential | 50K → 120K → 180K → 240K → 340K | 20K → 45K → 70K → 100K → 134K | ✅ |
+| 2 | Male % | `male_pct` | BuPu | Diverging | 47% → 48% → 49% → 50% → 52% | 47% → 48% → 49% → 50% → 52% | ✅ |
+| 3 | Female % | `female_pct` | PiYG | Diverging | 48% → 49% → 50% → 51% → 53% | 48% → 49% → 50% → 51% → 53% | ✅ |
+| 4 | Malay % | `malay_pct` | YlOrRd | Sequential | 15% → 35% → 55% → 70% → 90% | 15% → 35% → 55% → 70% → 90% | ✅ |
+| 5 | Chinese % | `chinese_pct` | Oranges | Sequential | 5% → 15% → 25% → 40% → 70% | 5% → 15% → 25% → 40% → 70% | ✅ |
+| 6 | Indian % | `indian_pct` | Greens | Sequential | 0% → 5% → 10% → 20% → 40% | 0% → 5% → 10% → 20% → 40% | ✅ |
+| 7 | Others % | `other_pct` | Purples | Sequential | 0% → 3% → 6% → 10% → 24% | 0% → 3% → 6% → 10% → 24% | ✅ |
+| 8 | Mean Age | `age_mean` | Viridis | Sequential | 40 → 42 → 44 → 45 → 48 | 39 → 42 → 45 → 50 → 55 | ✅ |
+| 9 | Median Age | `age_median` | Magma | Sequential | 37 → 39 → 41 → 43 → 46 | 36 → 40 → 44 → 49 → 55 | ✅ |
+| 10 | Contact % | `contact_pct` | PuBu | Sequential | 72% → 75% → 78% → 80% → 83% | — | ❌ |
+
+**Key design decisions:**
+- `contact_pct` is excluded from DUN because all 56 DUNs share the same value (76.84%), producing a uniform fill with no visual differentiation. The legend shows a "DUN: constant value" warning when this metric is selected at DUN zoom.
+- Race %, Male %, and Female % share the same stop values for Parliament and DUN because the percentage ranges are similar across both levels.
+- `total_voters`, `age_mean`, and `age_median` have separate DUN-tuned stops because DUNs have narrower ranges than Parliaments (e.g., DUN total voters: 20K–134K vs Parliament: 50K–340K).
+- Gender metrics use **diverging** palettes (BuPu for Male, PiYG for Female) because values cluster tightly around 50%, and diverging schemes highlight deviations from the midpoint.
 
 ### 5.3 Interactions (Implemented)
 
@@ -267,7 +278,7 @@ Defined in `src/lib/map/color-scales.ts` as `PARL_COLOR_SCALES` array.
 | DUN hover | `mousemove` on `dun-fill` | `setFeatureState` hover=true, cursor pointer |
 | DUN click | `click` on `dun-fill` | Popup with 16-field demographics |
 | Back button | Click "← Back to Selangor overview" | Clear DUN filter, flyTo state center at default zoom |
-| Metric change | `<select>` dropdown | Re-color Parliament choropleth + update Legend |
+| Metric change | `<select>` dropdown | Re-color Parliament + DUN choropleth + update Legend (auto-switches labels at zoom ≥ 9.5) |
 | Layer toggle | Checkboxes (Parliament/DUN/DM) | `setLayoutProperty` visibility on/off |
 | Sidebar toggle | `≡` button | Collapse/expand sidebar (`w-72` ↔ `w-0`) |
 
@@ -303,22 +314,22 @@ slgrvtrs/
 │   │   │   ├── page.tsx                # Dynamic import MapDashboard (ssr: false)
 │   │   │   └── globals.css
 │   │   ├── components/map/
-│   │   │   ├── MapDashboard.tsx        # Main map (890 lines) — all layers, popups, sidebar
-│   │   │   └── Legend.tsx               # Reusable color legend (30 lines)
+│   │   │   ├── MapDashboard.tsx        # Main map (965 lines) — all layers, popups, sidebar, DM filters
+│   │   │   └── Legend.tsx               # Reusable color legend with dunApplicable warning (34 lines)
 │   │   └── lib/map/
 │   │       ├── setup.ts                # MapLibre init, workerUrl config (19 lines)
-│   │       ├── color-scales.ts         # 7 PARL_COLOR_SCALES + interpolation (240 lines)
+│   │       ├── color-scales.ts         # 10 PARL_COLOR_SCALES + 9 DUN_COLOR_SCALES + interpolation (326 lines)
 │   │       └── join-stats.ts            # Client-side GeoJSON ← JSON merge (64 lines)
 │   ├── public/
 │   │   ├── boundaries/
 │   │   │   ├── selangor_parliament.geojson  # 22 features, 183 KB
 │   │   │   ├── selangor_dun.geojson         # 56 features, 215 KB
 │   │   │   ├── selangor_outline.geojson     # 1 MultiPolygon, 178 KB
-│   │   │   └── dm_centroids.geojson        # 945 points, 849 KB (Phase 3)
+│   │   │   └── dm_centroids.geojson        # 945 points, 849 KB
 │   │   ├── stats/
 │   │   │   ├── parliament.json              # 22 records, 8.2 KB
 │   │   │   ├── dun.json                     # 56 records, 24 KB
-│   │   │   └── dm.json                      # 945 records, 429 KB (Phase 3)
+│   │   │   └── dm.json                      # 945 records, 429 KB
 │   │   ├── maplibre-gl-worker.mjs          # MapLibre ESM worker, 19 KB
 │   │   └── maplibre-gl-shared.mjs          # MapLibre shared module, 471 KB
 │   ├── migrations/
@@ -523,7 +534,7 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] Validate data-join key format — `voter_prefix` ("092"-"113") matches stats keys
 - [x] Implement MapDashboard with Parliament choropleth (Layer 1)
 - [x] Add click popup with stats (12 fields), hover highlight via `feature-state` (no `promoteId`)
-- [x] Add sidebar with metric selector (7 metrics: total, malay, chinese, indian, age, contact, female)
+- [x] Add sidebar with metric selector (10 metrics: total voters, male %, female %, malay %, chinese %, indian %, others %, mean age, median age, contact %)
 - [x] Add dynamic color legend (`Legend.tsx`, reusable, updates with metric)
 - [x] Add sidebar toggle, loading state
 - [x] Add navigation controls and attribution
@@ -601,7 +612,64 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 
 ---
 
-## 14. Bug Fix Log
+## 14. Choropleth Metric Audit (2026-08)
+
+### Scope
+
+Audit of the choropleth coloring logic for both Parliament (Layer 1) and DUN (Layer 2) layers, verifying that the 10 metrics defined in `color-scales.ts` produce correct visual gradients, that stop values match actual data ranges, and that the DUN layer properly participates in metric switching.
+
+### Findings
+
+**1. Parliament (Layer 1) — 10 metrics, all functional ✅**
+
+All 10 `PARL_COLOR_SCALES` map correctly to the `parliament-fill` layer via `buildColorExpression()`. The `updateMetric()` function in `MapDashboard.tsx` calls `setPaintProperty('parliament-fill', 'fill-color', ...)` on every metric change. Stop values are calibrated to Parliament data ranges (verified in comments within `color-scales.ts`):
+
+- `total_voters`: 50K–340K (YlGnBu) — covers the full Parliament range
+- `male_pct`: 47%–52% (BuPu diverging) — tight range around 50%
+- `female_pct`: 48%–53% (PiYG diverging) — complementary to male
+- `malay_pct`: 15%–90% (YlOrRd) — wide range, good gradient spread
+- `chinese_pct`: 5%–70% (Oranges) — good coverage of the 11%–62% actual range
+- `indian_pct`: 0%–40% (Greens) — covers the 2%–24% actual range with headroom
+- `other_pct`: 0%–24% (Purples) — covers the 0%–15% actual range with headroom
+- `age_mean`: 40–48 (Viridis) — covers the ~40–47 actual range
+- `age_median`: 37–46 (Magma) — covers the ~37–46 actual range
+- `contact_pct`: 72%–83% (PuBu) — covers the ~72–82% actual range
+
+**2. DUN (Layer 2) — 9 of 10 metrics, choropleth (not static) ✅**
+
+The DUN layer was originally documented as "static teal fill" but was upgraded to full dynamic choropleth. The `updateMetric()` function now also calls `setPaintProperty('dun-fill', 'fill-color', ...)` using `DUN_COLOR_SCALES` (via `getDunScaleById()`). Key details:
+
+- `contact_pct` is the **only excluded metric** (`dunApplicable: false`) because all 56 DUNs have the same value (76.84%). When selected at DUN zoom, the legend shows a "DUN: constant value" amber warning.
+- DUN-tuned stop values exist for 3 metrics where data ranges differ significantly from Parliament:
+  - `total_voters`: 20K–134K (vs Parliament 50K–340K) — DUNs are smaller
+  - `age_mean`: 39–55 (vs Parliament 40–48) — DUNs have wider age spread
+  - `age_median`: 36–55 (vs Parliament 37–46) — same reason
+- The remaining 7 metrics share stop values with Parliament because the percentage ranges are similar.
+
+**3. Legend auto-switching ✅**
+
+The `Legend` component receives a `ColorScale` prop that switches between Parliament and DUN scales based on zoom level (`isDunZoom = mapZoom >= 9.5`). This ensures legend labels show the correct data range for the visible layer. When `contact_pct` is selected at DUN zoom, the legend shows `dunApplicable === false` warning.
+
+**4. Initial DUN color expression ✅**
+
+On map load (before any metric change), the DUN fill is initialized with `DUN_COLOR_SCALES[0]` (Total Voters, YlGnBu DUN stops) via `buildColorExpression('total_voters', DUN_COLOR_SCALES[0].stops)`. This matches the Parliament default and provides a consistent initial view.
+
+### Summary
+
+| Aspect | Status | Notes |
+|--------|--------|-------|
+| Parliament choropleth (10 metrics) | ✅ Correct | All metrics produce proper gradients |
+| DUN choropleth (9 metrics) | ✅ Correct | `contact_pct` properly excluded |
+| DUN initial color | ✅ Correct | Uses DUN_COLOR_SCALES[0] (Total Voters) |
+| Metric switching | ✅ Correct | Both Parliament and DUN update via `setPaintProperty` |
+| Legend auto-switch | ✅ Correct | Zoom ≥9.5 switches to DUN labels |
+| Stop value calibration | ✅ Correct | Parliament and DUN have appropriate ranges |
+| Gender diverging palettes | ✅ Correct | BuPu (Male) and PiYG (Female) highlight deviation from 50% |
+| `dunApplicable` flag | ✅ Correct | Legend shows warning for `contact_pct` at DUN zoom |
+
+---
+
+## 15. Bug Fix Log
 
 ### DM Bubble Layer Filter Fixes (2026-08)
 

@@ -134,16 +134,18 @@ Confirmed scripts in `dashboard/package.json`:
 
 ### [x] CF-18: Verify All Map Assets Deployed
 
-**Confirmed from build log.** All 3 GeoJSON files present in upload:
+**Confirmed from build log.** All GeoJSON and stats files present in upload:
 - `/boundaries/selangor_parliament.geojson` (deployed in initial upload)
 - `/boundaries/selangor_dun.geojson` (deployed in initial upload)
 - `/boundaries/selangor_outline.geojson` (deployed as new asset in this build)
+- `/boundaries/dm_centroids.geojson` (deployed with Phase 3 DM bubble layer)
 - `/stats/parliament.json` (deployed in initial upload)
 - `/stats/dun.json` (deployed in initial upload)
+- `/stats/dm.json` (deployed with Phase 3 DM bubble layer — 945 records with gender×race sub-counts)
 - `/maplibre-gl-worker.mjs` (deployed in initial upload)
 - `/maplibre-gl-shared.mjs` (deployed in initial upload)
 
-> **Note**: `selangor_outline.geojson` was missing from the first deploy (37 assets), causing a 404 and JSON parse error on the map. This was fixed and confirmed uploaded in the second deploy (46 assets).
+> **Note**: `selangor_outline.geojson` was missing from the first deploy (37 assets), causing a 404 and JSON parse error on the map. This was fixed and confirmed uploaded in the second deploy (46 assets). DM assets (`dm_centroids.geojson`, `dm.json`) were added in Phase 3, bringing the total to 48 assets.
 
 ### [x] CF-19: Post-Deploy DM Bubble Layer Bug Fixes
 
@@ -157,6 +159,18 @@ Additional: added `test_dm_radius_engine.py` (5 tests, 10,395 checks passing), A
 
 **Files changed**: `MapDashboard.tsx`, new `test_dm_radius_engine.py`
 **No CF config changes needed** — purely frontend logic fixes.
+
+### [x] CF-19a: Choropleth Metric Audit
+
+Audited the choropleth coloring logic for Parliament (Layer 1) and DUN (Layer 2):
+- **10 metrics** defined in `PARL_COLOR_SCALES` (was documented as 7 — updated)
+- **9 DUN metrics** in `DUN_COLOR_SCALES` (`contact_pct` excluded — constant value across all DUNs)
+- DUN layer uses **dynamic choropleth** (not static teal fill as previously documented)
+- Legend **auto-switches** between Parliament/DUN labels at zoom ≥ 9.5
+- 3 metrics have DUN-specific stop values (`total_voters`, `age_mean`, `age_median`)
+- Full audit documented in `MAPLIBRE_PROJECT.md` §14
+
+**No code changes needed** — the implementation was already correct; only documentation was outdated.
 
 ---
 
@@ -253,7 +267,7 @@ Already configured via CF dashboard Git integration. Pushes to `main` auto-deplo
 ```
 CF-00 (fix next.config.ts) ✅
   ├── CF-01..04 (Static deploy — SKIPPED, went straight to Workers)
-  └── CF-10..19 (Workers deploy + post-deploy fixes — COMPLETE ✅)
+  └── CF-10..19a (Workers deploy + post-deploy fixes + choropleth audit — COMPLETE ✅)
         └── CF-20..25 (D1 database — ready, not started)
               └── CF-30..32 (R2 storage — future)
                     └── CF-40..41 (CI/CD — optional)
@@ -265,7 +279,7 @@ CF-00 (fix next.config.ts) ✅
 |-------|-------|--------|-------|
 | Pre-Flight | CF-00 | **DONE** | next.config.ts fixed |
 | A: Static | CF-01..04 | **SKIPPED** | Went straight to Workers |
-| B: Workers | CF-10..19 | **DONE** | Live at workers.dev; DM bubble filter bugs fixed |
+| B: Workers | CF-10..20 | **DONE** | Live at workers.dev; DM bubble filter bugs fixed; choropleth metric audit complete |
 | C: D1 | CF-20..25 | **Ready** | SQL files generated, D1 not provisioned |
 | D: R2 | CF-30..32 | **Future** | Needs PMTiles build first |
 | E: CI/CD | CF-40..41 | **Optional** | Git integration already auto-deploys |

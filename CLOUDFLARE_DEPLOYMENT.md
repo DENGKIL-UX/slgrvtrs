@@ -154,12 +154,14 @@ Excludes `data/`, `analysis/`, `scripts/`, `*.md`, `docs/`, `.git/`, `node_modul
 | `selangor_parliament.geojson` | ~182 KB | `.open-next/assets/boundaries/` |
 | `selangor_dun.geojson` | ~400 KB | `.open-next/assets/boundaries/` |
 | `selangor_outline.geojson` | ~50 KB | `.open-next/assets/boundaries/` |
+| `dm_centroids.geojson` | ~849 KB | `.open-next/assets/boundaries/` |
 | `parliament.json` | ~10 KB | `.open-next/assets/stats/` |
 | `dun.json` | ~30 KB | `.open-next/assets/stats/` |
+| `dm.json` | ~429 KB | `.open-next/assets/stats/` |
 | `maplibre-gl-worker.mjs` | ~100 KB | `.open-next/assets/` |
 | `maplibre-gl-shared.mjs` | ~200 KB | `.open-next/assets/` |
 | Next.js JS chunks | ~2.5 MB | `.open-next/assets/_next/static/` |
-| **Total deployed** | **46 files, ~3.9 MB** (827 KB gzip) | |
+| **Total deployed** | **48 files, ~5.2 MB** (827 KB gzip) | |
 
 ### 3.3 D1 Free Tier (Phase 3+, not yet provisioned)
 
@@ -235,10 +237,12 @@ dashboard/public/
 ├── boundaries/
 │   ├── selangor_parliament.geojson   # 22 Parliament boundaries
 │   ├── selangor_dun.geojson          # 56 DUN boundaries
-│   └── selangor_outline.geojson      # Selangor state outline
+│   ├── selangor_outline.geojson      # Selangor state outline
+│   └── dm_centroids.geojson          # 945 DM centroid points
 ├── stats/
 │   ├── parliament.json               # 22 Parliament aggregated stats
-│   └── dun.json                      # 56 DUN aggregated stats
+│   ├── dun.json                      # 56 DUN aggregated stats
+│   └── dm.json                       # 945 DM stats with gender×race sub-counts
 ├── maplibre-gl-worker.mjs            # MapLibre WebGL worker (ESM)
 └── maplibre-gl-shared.mjs            # MapLibre shared helpers (ESM)
 ```
@@ -370,15 +374,17 @@ D1 uses **bindings** (not connection strings). The `DB` binding is available in 
 ### 9.3 Deployed Assets
 
 ```
-Total: 46 files
+Total: 48 files
   - BUILD_ID
   - _next/static/chunks/* (JS bundles)
   - _next/static/css/* (stylesheets)
   - boundaries/selangor_parliament.geojson
   - boundaries/selangor_dun.geojson
   - boundaries/selangor_outline.geojson
+  - boundaries/dm_centroids.geojson
   - stats/parliament.json
   - stats/dun.json
+  - stats/dm.json
   - maplibre-gl-worker.mjs
   - maplibre-gl-shared.mjs
   - (favicon, etc.)
