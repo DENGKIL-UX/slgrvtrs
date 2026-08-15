@@ -1,0 +1,1434 @@
+{
+  "total_fixed": 142,
+  "total_failed": 0,
+  "methods": {
+    "snapped_to_boundary": 88,
+    "dun_centroid_fallback": 34,
+    "snapped_offset_10x": 11,
+    "snapped_offset_20x": 6,
+    "snapped_offset_5x": 3
+  },
+  "fixes": [
+    {
+      "dm_code": "03.JAYA SETIA",
+      "dm_name": "JAYA SETIA",
+      "dun_code": "N.11",
+      "old_lng": 101.4152322,
+      "old_lat": 3.180058,
+      "new_lng": 101.41023409376918,
+      "new_lat": 3.2447005031337843,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "07.TANJONG KLANG",
+      "dm_name": "TANJONG KLANG",
+      "dun_code": "N.44",
+      "old_lng": 101.4555383,
+      "old_lat": 3.0282204,
+      "new_lng": 101.42285182484369,
+      "new_lat": 3.0336792023474577,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "11.SUNGAI UDANG SELATAN",
+      "dm_name": "SUNGAI UDANG SELATAN",
+      "dun_code": "N.44",
+      "old_lng": 101.43922126252578,
+      "old_lat": 3.050383754771305,
+      "new_lng": 101.42522421444816,
+      "new_lat": 3.04903617665587,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "01.SUNGAI UDANG UTARA",
+      "dm_name": "SUNGAI UDANG UTARA",
+      "dun_code": "N.44",
+      "old_lng": 101.43920725080311,
+      "old_lat": 3.049749450616748,
+      "new_lng": 101.42522421444816,
+      "new_lat": 3.04903617665587,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "05.KUALA KLANG",
+      "dm_name": "KUALA KLANG",
+      "dun_code": "N.44",
+      "old_lng": 101.4418818,
+      "old_lat": 3.0392164,
+      "new_lng": 101.42491629011504,
+      "new_lat": 3.043619615566726,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "10.BANDAR MAHKOTA",
+      "dm_name": "BANDAR MAHKOTA",
+      "dun_code": "N.25",
+      "old_lng": 101.80542555846397,
+      "old_lat": 2.877675721157732,
+      "new_lng": 101.8002990567376,
+      "new_lat": 3.026128156028369,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "04.KINRARA SEKSYEN 7",
+      "dm_name": "KINRARA SEKSYEN 7",
+      "dun_code": "N.30",
+      "old_lng": 101.4922193,
+      "old_lat": 3.0741068,
+      "new_lng": 101.59990598657114,
+      "new_lat": 3.0391363354834215,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "08.SUNGAI LIMA",
+      "dm_name": "SUNGAI LIMA",
+      "dun_code": "N.44",
+      "old_lng": 101.4133836,
+      "old_lat": 3.0600457,
+      "new_lng": 101.28545492416035,
+      "new_lat": 2.992733934994583,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "04.SUNGAI SIRIH",
+      "dm_name": "SUNGAI SIRIH",
+      "dun_code": "N.44",
+      "old_lng": 101.423298975,
+      "old_lat": 3.0282997,
+      "new_lng": 101.42008505547048,
+      "new_lat": 3.0311811661244366,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "09.BANDAR PULAU KETAM",
+      "dm_name": "BANDAR PULAU KETAM",
+      "dun_code": "N.44",
+      "old_lng": 101.423298975,
+      "old_lat": 3.0282997,
+      "new_lng": 101.42008505547048,
+      "new_lat": 3.0311811661244366,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "10.BAGAN TEO CHEW",
+      "dm_name": "BAGAN TEO CHEW",
+      "dun_code": "N.44",
+      "old_lng": 101.423298975,
+      "old_lat": 3.0282997,
+      "new_lng": 101.42008505547048,
+      "new_lat": 3.0311811661244366,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "14.KAMPUNG BATU 13",
+      "dm_name": "KAMPUNG BATU 13",
+      "dun_code": "N.29",
+      "old_lng": 101.7772373,
+      "old_lat": 3.010876,
+      "new_lng": 101.71953028164543,
+      "new_lat": 3.011444220068237,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "11.BUKIT CHERAKAH",
+      "dm_name": "BUKIT CHERAKAH",
+      "dun_code": "N.11",
+      "old_lng": 101.4564306,
+      "old_lat": 3.2350633,
+      "new_lng": 101.42204057035954,
+      "new_lat": 3.2608036709265438,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "07.TAMAN MAWAR",
+      "dm_name": "TAMAN MAWAR",
+      "dun_code": "N.22",
+      "old_lng": 101.6323931,
+      "old_lat": 3.068157,
+      "new_lng": 101.74528936941525,
+      "new_lat": 3.084652853267743,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "02.PARIT 13 - 15 SUNGAI PANJANG",
+      "dm_name": "PARIT 13 - 15 SUNGAI PANJANG",
+      "dun_code": "N.03",
+      "old_lng": 101.0375439,
+      "old_lat": 3.770621,
+      "new_lng": 101.05994967635712,
+      "new_lat": 3.7323964921170263,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "12.PARIT 13 SUNGAI NIPAH",
+      "dm_name": "PARIT 13 SUNGAI NIPAH",
+      "dun_code": "N.03",
+      "old_lng": 101.0476243,
+      "old_lat": 3.7575121,
+      "new_lng": 101.05994967635712,
+      "new_lat": 3.7323964921170263,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "01.BUKIT BANGKUNG",
+      "dm_name": "BUKIT BANGKUNG",
+      "dun_code": "N.54",
+      "old_lng": 101.6790149,
+      "old_lat": 2.66945,
+      "new_lng": 101.67416606150196,
+      "new_lat": 2.667094046234664,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "08.SHAH ALAM S 2",
+      "dm_name": "SHAH ALAM S 2",
+      "dun_code": "N.40",
+      "old_lng": 101.5303749,
+      "old_lat": 3.2135231,
+      "new_lng": 101.5282038889211,
+      "new_lat": 3.1843322209256093,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "18.PARIT 6 - 12 TIMUR",
+      "dm_name": "PARIT 6 - 12 TIMUR",
+      "dun_code": "N.03",
+      "old_lng": 101.0066458,
+      "old_lat": 3.7125239,
+      "new_lng": 101.08364845848376,
+      "new_lat": 3.652187252707581,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "08.SUNGAI CHOH",
+      "dm_name": "SUNGAI CHOH",
+      "dun_code": "N.07",
+      "old_lng": 101.5873729,
+      "old_lat": 3.343516,
+      "new_lng": 101.58815866292947,
+      "new_lat": 3.345359405040543,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "14.KAMPUNG BATU 38 BARUH",
+      "dm_name": "KAMPUNG BATU 38 BARUH",
+      "dun_code": "N.01",
+      "old_lng": 100.9568802,
+      "old_lat": 3.7538122,
+      "new_lng": 100.9547027706155,
+      "new_lat": 3.7550597756298294,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "11.KAMPUNG TENGAH LEMBAH JAYA",
+      "dm_name": "KAMPUNG TENGAH LEMBAH JAYA",
+      "dun_code": "N.20",
+      "old_lng": 101.7110433,
+      "old_lat": 3.2290224,
+      "new_lng": 101.77404065705484,
+      "new_lat": 3.190934589773357,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "12.SERI PENDAMAR",
+      "dm_name": "SERI PENDAMAR",
+      "dun_code": "N.46",
+      "old_lng": 101.42073598965035,
+      "old_lat": 3.0115090177954196,
+      "new_lng": 101.42037829364286,
+      "new_lat": 3.0104968622526638,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "01.KAMPUNG PENDAMAR",
+      "dm_name": "KAMPUNG PENDAMAR",
+      "dun_code": "N.46",
+      "old_lng": 101.4167967,
+      "old_lat": 3.0140686,
+      "new_lng": 101.35341046778044,
+      "new_lat": 2.9455410548926015,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "02.SEKSYEN 20 UTARA",
+      "dm_name": "SEKSYEN 20 UTARA",
+      "dun_code": "N.35",
+      "old_lng": 101.54009153236251,
+      "old_lat": 3.055023352188252,
+      "new_lng": 101.60637252505576,
+      "new_lat": 3.091598118404891,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "03.SEKSYEN 20 SELATAN",
+      "dm_name": "SEKSYEN 20 SELATAN",
+      "dun_code": "N.35",
+      "old_lng": 101.54058031740641,
+      "old_lat": 3.0551578009572853,
+      "new_lng": 101.60637252505576,
+      "new_lat": 3.091598118404891,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "09.KAMPUNG BAGAN TERAP",
+      "dm_name": "KAMPUNG BAGAN TERAP",
+      "dun_code": "N.02",
+      "old_lng": 101.080831,
+      "old_lat": 3.725615,
+      "new_lng": 100.98830389256199,
+      "new_lat": 3.721813157024793,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "09.KANCHING",
+      "dm_name": "KANCHING",
+      "dun_code": "N.14",
+      "old_lng": 101.619835,
+      "old_lat": 3.307083,
+      "new_lng": 101.53108812328767,
+      "new_lat": 3.3295819520547947,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "12.KAMPUNG SEKENDI",
+      "dm_name": "KAMPUNG SEKENDI",
+      "dun_code": "N.01",
+      "old_lng": 100.9386619,
+      "old_lat": 3.728987,
+      "new_lng": 100.93810712375351,
+      "new_lat": 3.729439398510037,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "13.PANDAMARAN JAYA APARTMENT",
+      "dm_name": "PANDAMARAN JAYA APARTMENT",
+      "dun_code": "N.46",
+      "old_lng": 101.4256982,
+      "old_lat": 2.99827,
+      "new_lng": 101.42523538633577,
+      "new_lat": 2.9975342510979104,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.KANCHONG",
+      "dm_name": "KANCHONG",
+      "dun_code": "N.53",
+      "old_lng": 101.45540964726861,
+      "old_lat": 2.727360265407535,
+      "new_lng": 101.4482751619565,
+      "new_lat": 2.739040477414682,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "14.HULU YAM LAMA",
+      "dm_name": "HULU YAM LAMA",
+      "dun_code": "N.06",
+      "old_lng": 101.6405921,
+      "old_lat": 3.453297,
+      "new_lng": 101.63979236744036,
+      "new_lat": 3.4538441256298165,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "08.KANCHONG TIMUR",
+      "dm_name": "KANCHONG TIMUR",
+      "dun_code": "N.53",
+      "old_lng": 101.45652555042922,
+      "old_lat": 2.7291020798099894,
+      "new_lng": 101.4482751619565,
+      "new_lat": 2.739040477414682,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "03.KAWASAN UPM",
+      "dm_name": "KAWASAN UPM",
+      "dun_code": "N.29",
+      "old_lng": 101.7194109,
+      "old_lat": 3.0137228,
+      "new_lng": 101.71841722240707,
+      "new_lat": 3.013415975178809,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "12.MELAWATI JALAN F & H",
+      "dm_name": "MELAWATI JALAN F & H",
+      "dun_code": "N.18",
+      "old_lng": 101.7458009,
+      "old_lat": 3.1408565,
+      "new_lng": 101.75090152948535,
+      "new_lat": 3.160798656934005,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "04.KAWASAN PELABUHAN",
+      "dm_name": "KAWASAN PELABUHAN",
+      "dun_code": "N.46",
+      "old_lng": 101.372148,
+      "old_lat": 3.0172019,
+      "new_lng": 101.35341046778044,
+      "new_lat": 2.9455410548926015,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "05.TAMAN PERWIRA",
+      "dm_name": "TAMAN PERWIRA",
+      "dun_code": "N.19",
+      "old_lng": 101.717504,
+      "old_lat": 3.2275957,
+      "new_lng": 101.7621046175715,
+      "new_lat": 3.1951558424384094,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "04.SEKSYEN 22",
+      "dm_name": "SEKSYEN 22",
+      "dun_code": "N.35",
+      "old_lng": 101.5550021,
+      "old_lat": 3.0715812,
+      "new_lng": 101.60637252505576,
+      "new_lat": 3.091598118404891,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "08.SRI GOMBAK 2-7",
+      "dm_name": "SRI GOMBAK 2-7",
+      "dun_code": "N.17",
+      "old_lng": 101.6610542,
+      "old_lat": 3.2578621,
+      "new_lng": 101.6930258727414,
+      "new_lat": 3.2531069724646304,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "06.PASANGAN",
+      "dm_name": "PASANGAN",
+      "dun_code": "N.10",
+      "old_lng": 101.2726903,
+      "old_lat": 3.3839594,
+      "new_lng": 101.27980037756627,
+      "new_lat": 3.3834721923619275,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "09.BUKIT KERAYONG",
+      "dm_name": "BUKIT KERAYONG",
+      "dun_code": "N.12",
+      "old_lng": 101.398171,
+      "old_lat": 3.162504,
+      "new_lng": 101.39774630678842,
+      "new_lat": 3.187036885725323,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "05.JALAN KEM",
+      "dm_name": "JALAN KEM",
+      "dun_code": "N.46",
+      "old_lng": 101.3982821,
+      "old_lat": 2.998271,
+      "new_lng": 101.39810761017984,
+      "new_lat": 2.99754674402463,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "05.KAMPUNG MELAYU",
+      "dm_name": "KAMPUNG MELAYU",
+      "dun_code": "N.14",
+      "old_lng": 101.594556,
+      "old_lat": 3.30649,
+      "new_lng": 101.58945954168549,
+      "new_lat": 3.306880657916172,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "05.DESA JAYA JALAN 20 - JALAN 38",
+      "dm_name": "DESA JAYA JALAN 20 - JALAN 38",
+      "dun_code": "N.37",
+      "old_lng": 101.674871,
+      "old_lat": 3.2438455,
+      "new_lng": 101.65363494426974,
+      "new_lat": 3.236642256434953,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.DESA JAYA JALAN 39 - JALAN 56",
+      "dm_name": "DESA JAYA JALAN 39 - JALAN 56",
+      "dun_code": "N.37",
+      "old_lng": 101.6619217,
+      "old_lat": 3.2515488,
+      "new_lng": 101.65176674262663,
+      "new_lat": 3.240405171432288,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "16.REKO UTARA",
+      "dm_name": "REKO UTARA",
+      "dun_code": "N.25",
+      "old_lng": 101.7912418729641,
+      "old_lat": 2.9659012521026833,
+      "new_lng": 101.8002990567376,
+      "new_lat": 3.026128156028369,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "13.BATU 7 TANJONG KARANG",
+      "dm_name": "BATU 7 TANJONG KARANG",
+      "dun_code": "N.08",
+      "old_lng": 101.1958779,
+      "old_lat": 3.4264546,
+      "new_lng": 101.19380403705577,
+      "new_lat": 3.4278879588308815,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "16.BATU ARANG BARAT",
+      "dm_name": "BATU ARANG BARAT",
+      "dun_code": "N.14",
+      "old_lng": 101.48983669964565,
+      "old_lat": 3.2862749709560277,
+      "new_lng": 101.53108812328767,
+      "new_lat": 3.3295819520547947,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "05.SS 5A",
+      "dm_name": "SS 5A",
+      "dun_code": "N.32",
+      "old_lng": 101.64051290666214,
+      "old_lat": 3.1198586931556194,
+      "new_lng": 101.60860249125139,
+      "new_lat": 3.1065705765122784,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "18.REKO SELATAN",
+      "dm_name": "REKO SELATAN",
+      "dun_code": "N.25",
+      "old_lng": 101.79113155752496,
+      "old_lat": 2.967275670267416,
+      "new_lng": 101.79107845817867,
+      "new_lat": 2.977184248574156,
+      "method": "snapped_offset_20x"
+    },
+    {
+      "dm_code": "03.BUKIT KUCHING TENGAH",
+      "dm_name": "BUKIT KUCHING TENGAH",
+      "dun_code": "N.12",
+      "old_lng": 101.332413,
+      "old_lat": 3.270783,
+      "new_lng": 101.33195648856163,
+      "new_lat": 3.267993491756388,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "04.SS 5B & 5C",
+      "dm_name": "SS 5B & 5C",
+      "dun_code": "N.32",
+      "old_lng": 101.6395423897072,
+      "old_lat": 3.120240975394307,
+      "new_lng": 101.60860249125139,
+      "new_lat": 3.1065705765122784,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "01.GLENMARIE",
+      "dm_name": "GLENMARIE",
+      "dun_code": "N.32",
+      "old_lng": 101.63949783291875,
+      "old_lat": 3.1192933390228004,
+      "new_lng": 101.60860249125139,
+      "new_lat": 3.1065705765122784,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "18.BATU ARANG SELATAN",
+      "dm_name": "BATU ARANG SELATAN",
+      "dun_code": "N.14",
+      "old_lng": 101.49159540880716,
+      "old_lat": 3.286982728948748,
+      "new_lng": 101.53108812328767,
+      "new_lat": 3.3295819520547947,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "17.BATU ARANG TIMUR",
+      "dm_name": "BATU ARANG TIMUR",
+      "dun_code": "N.14",
+      "old_lng": 101.49129427127262,
+      "old_lat": 3.287371507140597,
+      "new_lng": 101.53108812328767,
+      "new_lat": 3.3295819520547947,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "20.TAMAN GLENMARIE",
+      "dm_name": "TAMAN GLENMARIE",
+      "dun_code": "N.32",
+      "old_lng": 101.63844400699801,
+      "old_lat": 3.1203607896908756,
+      "new_lng": 101.60860249125139,
+      "new_lat": 3.1065705765122784,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "03.SS 5D",
+      "dm_name": "SS 5D",
+      "dun_code": "N.32",
+      "old_lng": 101.6388378227707,
+      "old_lat": 3.1194132831950587,
+      "new_lng": 101.60860249125139,
+      "new_lat": 3.1065705765122784,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.SERI SETIA",
+      "dm_name": "SERI SETIA",
+      "dun_code": "N.32",
+      "old_lng": 101.63856457158523,
+      "old_lat": 3.1183294804837223,
+      "new_lng": 101.60860249125139,
+      "new_lat": 3.1065705765122784,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.BATU 11 & 12 KAPAR",
+      "dm_name": "BATU 11 & 12 KAPAR",
+      "dun_code": "N.43",
+      "old_lng": 101.4067572,
+      "old_lat": 3.0866635,
+      "new_lng": 101.35435911715481,
+      "new_lat": 3.1067820585774055,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "03.KAWASAN SEKOLAH CINA 'A'",
+      "dm_name": "KAWASAN SEKOLAH CINA 'A'",
+      "dun_code": "N.47",
+      "old_lng": 101.41309782720955,
+      "old_lat": 3.074202889791758,
+      "new_lng": 101.43512829084197,
+      "new_lat": 3.044896933324759,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "15.BAGAN PASIR TANJONG KARANG",
+      "dm_name": "BAGAN PASIR TANJONG KARANG",
+      "dun_code": "N.08",
+      "old_lng": 101.1755565,
+      "old_lat": 3.4100437,
+      "new_lng": 101.17403110288355,
+      "new_lat": 3.4116086156436856,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "02.KAWASAN SEKOLAH CINA 'B'",
+      "dm_name": "KAWASAN SEKOLAH CINA 'B'",
+      "dun_code": "N.47",
+      "old_lng": 101.41189074411136,
+      "old_lat": 3.0722393802149095,
+      "new_lng": 101.43512829084197,
+      "new_lat": 3.044896933324759,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "03.JENJARUM TEMPATAN KEEMPAT",
+      "dm_name": "JENJARUM TEMPATAN KEEMPAT",
+      "dun_code": "N.52",
+      "old_lng": 101.51987718697873,
+      "old_lat": 2.895907181752478,
+      "new_lng": 101.51461058489787,
+      "new_lat": 2.8876134239177267,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "02.JENJARUM TEMPATAN KETIGA",
+      "dm_name": "JENJARUM TEMPATAN KETIGA",
+      "dun_code": "N.52",
+      "old_lng": 101.51994255711497,
+      "old_lat": 2.8945801425528677,
+      "new_lng": 101.51461058489787,
+      "new_lat": 2.8876134239177267,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "01.JENJARUM TEMPATAN KEDUA",
+      "dm_name": "JENJARUM TEMPATAN KEDUA",
+      "dun_code": "N.52",
+      "old_lng": 101.52050715040514,
+      "old_lat": 2.894275217940509,
+      "new_lng": 101.51461058489787,
+      "new_lat": 2.8876134239177267,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "02.BATANG KALI",
+      "dm_name": "BATANG KALI",
+      "dun_code": "N.07",
+      "old_lng": 101.65491234002164,
+      "old_lat": 3.4617831452167924,
+      "new_lng": 101.64663956802349,
+      "new_lat": 3.458531339414076,
+      "method": "snapped_offset_20x"
+    },
+    {
+      "dm_code": "12.BUKIT BERUNTUNG",
+      "dm_name": "BUKIT BERUNTUNG",
+      "dun_code": "N.07",
+      "old_lng": 101.65488598174078,
+      "old_lat": 3.4611332373972323,
+      "new_lng": 101.64684057335607,
+      "new_lat": 3.4584671342491062,
+      "method": "snapped_offset_20x"
+    },
+    {
+      "dm_code": "10.JENJARUM TEMPATAN PERTAMA",
+      "dm_name": "JENJARUM TEMPATAN PERTAMA",
+      "dun_code": "N.52",
+      "old_lng": 101.52126229824609,
+      "old_lat": 2.8936093811872183,
+      "new_lng": 101.51816687088387,
+      "new_lat": 2.885140405345621,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "05.KAMPUNG BATU EMPAT",
+      "dm_name": "KAMPUNG BATU EMPAT",
+      "dun_code": "N.43",
+      "old_lng": 101.40269,
+      "old_lat": 3.0932192,
+      "new_lng": 101.39483600957483,
+      "new_lat": 3.0879329204426895,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "03.PERIMBUN",
+      "dm_name": "PERIMBUN",
+      "dun_code": "N.27",
+      "old_lng": 101.7701819,
+      "old_lat": 3.0613221,
+      "new_lng": 101.77009870837634,
+      "new_lat": 3.0583424389754894,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "02.BANDAR BARU SUNGAI BULOH UTARA",
+      "dm_name": "BANDAR BARU SUNGAI BULOH UTARA",
+      "dun_code": "N.38",
+      "old_lng": 101.56950125210268,
+      "old_lat": 3.2105581270359047,
+      "new_lng": 101.56769828187704,
+      "new_lat": 3.2113887118056472,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.BANDAR BARU SUNGAI BULOH SELATAN",
+      "dm_name": "BANDAR BARU SUNGAI BULOH SELATAN",
+      "dun_code": "N.38",
+      "old_lng": 101.56904263152921,
+      "old_lat": 3.210251717131455,
+      "new_lng": 101.56743555148893,
+      "new_lat": 3.2109664213575217,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "19.SHAH ALAM S 18 TIMUR",
+      "dm_name": "SHAH ALAM S 18 TIMUR",
+      "dun_code": "N.41",
+      "old_lng": 101.54804822633136,
+      "old_lat": 3.078220315280012,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "16.SHAH ALAM S 19/32-19/50",
+      "dm_name": "SHAH ALAM S 19/32-19/50",
+      "dun_code": "N.41",
+      "old_lng": 101.54788879179566,
+      "old_lat": 3.0781101022319453,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "14.SHAH ALAM S 17 BARAT",
+      "dm_name": "SHAH ALAM S 17 BARAT",
+      "dun_code": "N.41",
+      "old_lng": 101.54761063987108,
+      "old_lat": 3.078352923433859,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "12.KAMPUNG KUANTAN",
+      "dm_name": "KAMPUNG KUANTAN",
+      "dun_code": "N.41",
+      "old_lng": 101.54671846716917,
+      "old_lat": 3.0785976752065323,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "11.BATU CAVES",
+      "dm_name": "BATU CAVES",
+      "dun_code": "N.16",
+      "old_lng": 101.67437861188952,
+      "old_lat": 3.25339852916565,
+      "new_lng": 101.67455293726164,
+      "new_lat": 3.253882160761031,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "07.SHAH ALAM S 24/1-24/38",
+      "dm_name": "SHAH ALAM S 24/1-24/38",
+      "dun_code": "N.41",
+      "old_lng": 101.54758962250817,
+      "old_lat": 3.077237694859182,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "04.SHAH ALAM S 20 - S 23",
+      "dm_name": "SHAH ALAM S 20 - S 23",
+      "dun_code": "N.41",
+      "old_lng": 101.54719610977074,
+      "old_lat": 3.0776271769342363,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "08.APARTMENT S 24",
+      "dm_name": "APARTMENT S 24",
+      "dun_code": "N.41",
+      "old_lng": 101.54616875310955,
+      "old_lat": 3.0781833095774815,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "17.SHAH ALAM S 24",
+      "dm_name": "SHAH ALAM S 24",
+      "dun_code": "N.41",
+      "old_lng": 101.54739873656649,
+      "old_lat": 3.076328554843484,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "05.HULU KELANG",
+      "dm_name": "HULU KELANG",
+      "dun_code": "N.18",
+      "old_lng": 101.7593337,
+      "old_lat": 3.1721314,
+      "new_lng": 101.75879914682098,
+      "new_lat": 3.182371316447784,
+      "method": "snapped_offset_20x"
+    },
+    {
+      "dm_code": "05.SHAH ALAM S 19/15-19/31",
+      "dm_name": "SHAH ALAM S 19/15-19/31",
+      "dun_code": "N.41",
+      "old_lng": 101.54621347172743,
+      "old_lat": 3.077453756820892,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "06.SHAH ALAM S 19/1-19/14",
+      "dm_name": "SHAH ALAM S 19/1-19/14",
+      "dun_code": "N.41",
+      "old_lng": 101.54608166042112,
+      "old_lat": 3.0774432636038713,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "18.SHAH ALAM S 18 BARAT 1",
+      "dm_name": "SHAH ALAM S 18 BARAT 1",
+      "dun_code": "N.41",
+      "old_lng": 101.54706989403539,
+      "old_lat": 3.0761468542711485,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "09.SHAH ALAM S 17 TIMUR",
+      "dm_name": "SHAH ALAM S 17 TIMUR",
+      "dun_code": "N.41",
+      "old_lng": 101.5460455616385,
+      "old_lat": 3.076814956718778,
+      "new_lng": 101.50987680246912,
+      "new_lat": 3.0481925308641973,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "09.KAMPUNG BAHARU SUBANG",
+      "dm_name": "KAMPUNG BAHARU SUBANG",
+      "dun_code": "N.39",
+      "old_lng": 101.5221221,
+      "old_lat": 3.1292909,
+      "new_lng": 101.5258289420929,
+      "new_lat": 3.12956839778377,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "12.JALAN RAYA TIMUR",
+      "dm_name": "JALAN RAYA TIMUR",
+      "dun_code": "N.49",
+      "old_lng": 101.4512319,
+      "old_lat": 3.0420253,
+      "new_lng": 101.45163578579121,
+      "new_lat": 3.041087252196524,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "15.PANDAN INDAH JALAN 5",
+      "dm_name": "PANDAN INDAH JALAN 5",
+      "dun_code": "N.22",
+      "old_lng": 101.7622366,
+      "old_lat": 3.1594225,
+      "new_lng": 101.76563867592678,
+      "new_lat": 3.1343080928275455,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "11.BATU 13 PUCHONG",
+      "dm_name": "BATU 13 PUCHONG",
+      "dun_code": "N.30",
+      "old_lng": 101.5926069,
+      "old_lat": 3.0209441,
+      "new_lng": 101.59657442613076,
+      "new_lat": 3.0207261258838853,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "07.SELAYANG BAHARU LIMA",
+      "dm_name": "SELAYANG BAHARU LIMA",
+      "dun_code": "N.16",
+      "old_lng": 101.67214664480409,
+      "old_lat": 3.257370150684046,
+      "new_lng": 101.6726195190136,
+      "new_lat": 3.2578290517640665,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "20.PUCHONG PERDANA 1",
+      "dm_name": "PUCHONG PERDANA 1",
+      "dun_code": "N.30",
+      "old_lng": 101.6095155,
+      "old_lat": 3.002548,
+      "new_lng": 101.60975199662924,
+      "new_lat": 3.0044695869163154,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.SELAYANG BAHARU EMPAT",
+      "dm_name": "SELAYANG BAHARU EMPAT",
+      "dun_code": "N.16",
+      "old_lng": 101.67183831203766,
+      "old_lat": 3.2595381269863775,
+      "new_lng": 101.69014512173914,
+      "new_lat": 3.2983416347826084,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "16.SUNGAI LIAS",
+      "dm_name": "SUNGAI LIAS",
+      "dun_code": "N.02",
+      "old_lng": 100.9713269,
+      "old_lat": 3.684729,
+      "new_lng": 100.97161340703182,
+      "new_lat": 3.6852724160674124,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "03.BUKIT IDAMAN",
+      "dm_name": "BUKIT IDAMAN",
+      "dun_code": "N.15",
+      "old_lng": 101.6397689,
+      "old_lat": 3.2464362,
+      "new_lng": 101.63973486091957,
+      "new_lat": 3.247059877027683,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "17.AU3 RUMAH PANGSA",
+      "dm_name": "AU3 RUMAH PANGSA",
+      "dun_code": "N.18",
+      "old_lng": 101.75525321915185,
+      "old_lat": 3.1810039884124777,
+      "new_lng": 101.75670212173283,
+      "new_lat": 3.1830484939680574,
+      "method": "snapped_offset_5x"
+    },
+    {
+      "dm_code": "17.KAMPUNG BAHARU SERENDAH",
+      "dm_name": "KAMPUNG BAHARU SERENDAH",
+      "dun_code": "N.07",
+      "old_lng": 101.63791811282495,
+      "old_lat": 3.4655763427554276,
+      "new_lng": 101.60887766576089,
+      "new_lat": 3.438886489130435,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "08.AU3 RUMAH TERES",
+      "dm_name": "AU3 RUMAH TERES",
+      "dun_code": "N.18",
+      "old_lng": 101.75564353891245,
+      "old_lat": 3.1814942866401847,
+      "new_lng": 101.75699560542213,
+      "new_lat": 3.1835914819462574,
+      "method": "snapped_offset_5x"
+    },
+    {
+      "dm_code": "13.PJS 8",
+      "dm_name": "PJS 8",
+      "dun_code": "N.32",
+      "old_lng": 101.62281097761645,
+      "old_lat": 3.084764801401655,
+      "new_lng": 101.61805648921236,
+      "new_lat": 3.086226464703146,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "16.KAMPUNG LINDUNGAN",
+      "dm_name": "KAMPUNG LINDUNGAN",
+      "dun_code": "N.32",
+      "old_lng": 101.6224494568153,
+      "old_lat": 3.085723967813348,
+      "new_lng": 101.61782639217682,
+      "new_lat": 3.0862085757802573,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "16.KERAMAT AU 1B",
+      "dm_name": "KERAMAT AU 1B",
+      "dun_code": "N.18",
+      "old_lng": 101.74917513673343,
+      "old_lat": 3.187261372110578,
+      "new_lng": 101.75803771127599,
+      "new_lat": 3.1896918550380238,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "15.SS 7",
+      "dm_name": "SS 7",
+      "dun_code": "N.32",
+      "old_lng": 101.6214494484839,
+      "old_lat": 3.085570982414117,
+      "new_lng": 101.61921143794622,
+      "new_lat": 3.085338689045795,
+      "method": "snapped_offset_5x"
+    },
+    {
+      "dm_code": "11.KERAMAT PANGSA",
+      "dm_name": "KERAMAT PANGSA",
+      "dun_code": "N.18",
+      "old_lng": 101.74977658648979,
+      "old_lat": 3.1880734481348365,
+      "new_lng": 101.75815642823667,
+      "new_lat": 3.1900483074767503,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "06.TAMAN PERMATA",
+      "dm_name": "TAMAN PERMATA",
+      "dun_code": "N.18",
+      "old_lng": 101.74895580500001,
+      "old_lat": 3.1887452499999998,
+      "new_lng": 101.75815642823667,
+      "new_lat": 3.1900483074767503,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "09.SRI KERAMAT AU 2A",
+      "dm_name": "SRI KERAMAT AU 2A",
+      "dun_code": "N.18",
+      "old_lng": 101.74895580500001,
+      "old_lat": 3.1887452499999998,
+      "new_lng": 101.75815642823667,
+      "new_lat": 3.1900483074767503,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "11.BUKIT KUDA",
+      "dm_name": "BUKIT KUDA",
+      "dun_code": "N.45",
+      "old_lng": 101.4666667,
+      "old_lat": 3.05,
+      "new_lng": 101.46527035221327,
+      "new_lat": 3.050769726314657,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "08.BANDAR BUKIT TINGGI 1",
+      "dm_name": "BANDAR BUKIT TINGGI 1",
+      "dun_code": "N.48",
+      "old_lng": 101.42803970328998,
+      "old_lat": 3.014027764846489,
+      "new_lng": 101.43125712566861,
+      "new_lat": 3.013725240812712,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "12.BANDAR BUKIT TINGGI 2",
+      "dm_name": "BANDAR BUKIT TINGGI 2",
+      "dun_code": "N.48",
+      "old_lng": 101.42962795851531,
+      "old_lat": 3.01259598439962,
+      "new_lng": 101.43115425388785,
+      "new_lat": 3.012452897990129,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "20.SHAH ALAM S 18 BARAT 2",
+      "dm_name": "SHAH ALAM S 18 BARAT 2",
+      "dun_code": "N.41",
+      "old_lng": 101.5331454,
+      "old_lat": 3.0677181,
+      "new_lng": 101.5350822510015,
+      "new_lat": 3.0597732601559935,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "12.SERI KEMBANGAN 7",
+      "dm_name": "SERI KEMBANGAN 7",
+      "dun_code": "N.28",
+      "old_lng": 101.73400919983703,
+      "old_lat": 3.0132713871114003,
+      "new_lng": 101.71036428571429,
+      "new_lat": 3.0312429220779222,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "11.SERI KEMBANGAN 12",
+      "dm_name": "SERI KEMBANGAN 12",
+      "dun_code": "N.28",
+      "old_lng": 101.73444596755039,
+      "old_lat": 3.01463389681595,
+      "new_lng": 101.71036428571429,
+      "new_lat": 3.0312429220779222,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "16.BANDAR BARU AMPANG",
+      "dm_name": "BANDAR BARU AMPANG",
+      "dun_code": "N.19",
+      "old_lng": 101.7692888,
+      "old_lat": 3.14556,
+      "new_lng": 101.76613180612244,
+      "new_lat": 3.1740275,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "07.SERI KEMBANGAN 9",
+      "dm_name": "SERI KEMBANGAN 9",
+      "dun_code": "N.28",
+      "old_lng": 101.73301822951996,
+      "old_lat": 3.0138629822498144,
+      "new_lng": 101.71036428571429,
+      "new_lat": 3.0312429220779222,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "14.SERI KEMBANGAN 3",
+      "dm_name": "SERI KEMBANGAN 3",
+      "dun_code": "N.28",
+      "old_lng": 101.73223277362246,
+      "old_lat": 3.0132534952531373,
+      "new_lng": 101.71036428571429,
+      "new_lat": 3.0312429220779222,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "09.SERI KEMBANGAN 8",
+      "dm_name": "SERI KEMBANGAN 8",
+      "dun_code": "N.28",
+      "old_lng": 101.73366831959277,
+      "old_lat": 3.0152631120861813,
+      "new_lng": 101.71036428571429,
+      "new_lat": 3.0312429220779222,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "08.SERI KEMBANGAN 11",
+      "dm_name": "SERI KEMBANGAN 11",
+      "dun_code": "N.28",
+      "old_lng": 101.73315792608571,
+      "old_lat": 3.0152006790421853,
+      "new_lng": 101.72253245444233,
+      "new_lat": 3.0197655586370304,
+      "method": "snapped_offset_20x"
+    },
+    {
+      "dm_code": "10.SERI KEMBANGAN 10",
+      "dm_name": "SERI KEMBANGAN 10",
+      "dun_code": "N.28",
+      "old_lng": 101.73206685080581,
+      "old_lat": 3.0144410754113444,
+      "new_lng": 101.72253245444233,
+      "new_lat": 3.0197655586370304,
+      "method": "snapped_offset_20x"
+    },
+    {
+      "dm_code": "14.JALAN MERU",
+      "dm_name": "JALAN MERU",
+      "dun_code": "N.45",
+      "old_lng": 101.443944,
+      "old_lat": 3.0925067,
+      "new_lng": 101.44274784603907,
+      "new_lat": 3.091700646063873,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "02.TAMAN MUDA TIMUR",
+      "dm_name": "TAMAN MUDA TIMUR",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "03.TAMAN PUTRA",
+      "dm_name": "TAMAN PUTRA",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "04.TAMAN SERAYA",
+      "dm_name": "TAMAN SERAYA",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "05.TAMAN MELOR",
+      "dm_name": "TAMAN MELOR",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.TAMAN MEGA JAYA",
+      "dm_name": "TAMAN MEGA JAYA",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "08.TAMAN BUKIT TERATAI",
+      "dm_name": "TAMAN BUKIT TERATAI",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "10.KAMPUNG CHERAS BAHARU BARAT",
+      "dm_name": "KAMPUNG CHERAS BAHARU BARAT",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "13.CHERAS HARTAMAS",
+      "dm_name": "CHERAS HARTAMAS",
+      "dun_code": "N.22",
+      "old_lng": 101.73234140625,
+      "old_lat": 3.09956084375,
+      "new_lng": 101.7416197005798,
+      "new_lat": 3.1100910329887026,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "05.SENTOSA DATO DAGANG",
+      "dm_name": "SENTOSA DATO DAGANG",
+      "dun_code": "N.48",
+      "old_lng": 101.4611854,
+      "old_lat": 3.0290032,
+      "new_lng": 101.46162766038454,
+      "new_lat": 3.022839773813634,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "02.SENTOSA DATO YUSOF SHAHBUDDIN",
+      "dm_name": "SENTOSA DATO YUSOF SHAHBUDDIN",
+      "dun_code": "N.48",
+      "old_lng": 101.46832657692309,
+      "old_lat": 2.991869276923077,
+      "new_lng": 101.46882336432068,
+      "new_lat": 2.9942494893233125,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "13.SUNGAI WAY SELATAN DUA",
+      "dm_name": "SUNGAI WAY SELATAN DUA",
+      "dun_code": "N.35",
+      "old_lng": 101.62333623458305,
+      "old_lat": 3.087313422015573,
+      "new_lng": 101.61874471875,
+      "new_lat": 3.1049001875,
+      "method": "dun_centroid_fallback"
+    },
+    {
+      "dm_code": "12.JALAN SUNGAI JERNIH",
+      "dm_name": "JALAN SUNGAI JERNIH",
+      "dun_code": "N.34",
+      "old_lng": 101.66194586817358,
+      "old_lat": 3.1025068723833575,
+      "new_lng": 101.65955265471915,
+      "new_lat": 3.1022878100474176,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "18.HAJI HUSIN JALAN KEBUN",
+      "dm_name": "HAJI HUSIN JALAN KEBUN",
+      "dun_code": "N.49",
+      "old_lng": 101.47753494662271,
+      "old_lat": 3.028621898433848,
+      "new_lng": 101.47821770875537,
+      "new_lat": 3.0282581756192317,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "07.PANDAN INDAH JALAN 1, 4 DAN 6",
+      "dm_name": "PANDAN INDAH JALAN 1, 4 DAN 6",
+      "dun_code": "N.21",
+      "old_lng": 101.7637632,
+      "old_lat": 3.1320702,
+      "new_lng": 101.76106022107167,
+      "new_lat": 3.1314498914987023,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "12.PANDAN INDAH JALAN 2 & 3",
+      "dm_name": "PANDAN INDAH JALAN 2 & 3",
+      "dun_code": "N.21",
+      "old_lng": 101.7631155,
+      "old_lat": 3.1324774,
+      "new_lng": 101.76090905860977,
+      "new_lat": 3.1319747463494214,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "14.BUKIT ISTANA",
+      "dm_name": "BUKIT ISTANA",
+      "dun_code": "N.47",
+      "old_lng": 101.42104886503898,
+      "old_lat": 3.009700806023877,
+      "new_lng": 101.42133670657914,
+      "new_lat": 3.011252908620501,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "04.PANDAMARAN",
+      "dm_name": "PANDAMARAN",
+      "dun_code": "N.47",
+      "old_lng": 101.42128687849006,
+      "old_lat": 3.0101837951857817,
+      "new_lng": 101.42156952232004,
+      "new_lat": 3.011257599547276,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "01.SERDANG LAMA",
+      "dm_name": "SERDANG LAMA",
+      "dun_code": "N.28",
+      "old_lng": 101.7092228,
+      "old_lat": 3.018434,
+      "new_lng": 101.70892617283904,
+      "new_lat": 3.0219131042117553,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "09.LADANG NIGEL GARDNER",
+      "dm_name": "LADANG NIGEL GARDNER",
+      "dun_code": "N.06",
+      "old_lng": 101.63325481776282,
+      "old_lat": 3.524383379942157,
+      "new_lng": 101.62979655818826,
+      "new_lat": 3.525242039994495,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "10.KAWASAN ASSUNTA CONVENT",
+      "dm_name": "KAWASAN ASSUNTA CONVENT",
+      "dun_code": "N.34",
+      "old_lng": 101.6441932,
+      "old_lat": 3.0924713,
+      "new_lng": 101.6447285896401,
+      "new_lat": 3.0941750849916683,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.SERI KEMBANGAN 5",
+      "dm_name": "SERI KEMBANGAN 5",
+      "dun_code": "N.28",
+      "old_lng": 101.70631532657704,
+      "old_lat": 3.0209345223734116,
+      "new_lng": 101.70648086705988,
+      "new_lat": 3.0215638421737356,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "04.MERBAU SEMPAK",
+      "dm_name": "MERBAU SEMPAK",
+      "dun_code": "N.38",
+      "old_lng": 101.514672,
+      "old_lat": 3.218802,
+      "new_lng": 101.51514492128392,
+      "new_lat": 3.2183756464915176,
+      "method": "snapped_to_boundary"
+    },
+    {
+      "dm_code": "06.JALAN GOH HOCK HUAT",
+      "dm_name": "JALAN GOH HOCK HUAT",
+      "dun_code": "N.45",
+      "old_lng": 101.4379061,
+      "old_lat": 3.0608923,
+      "new_lng": 101.4371709538286,
+      "new_lat": 3.065522331596917,
+      "method": "snapped_offset_10x"
+    },
+    {
+      "dm_code": "06.KAMPUNG JAWA",
+      "dm_name": "KAMPUNG JAWA",
+      "dun_code": "N.49",
+      "old_lng": 101.488486,
+      "old_lat": 3.0110701,
+      "new_lng": 101.48796224390244,
+      "new_lat": 3.0145769268292684,
+      "method": "dun_centroid_fallback"
+    }
+  ],
+  "failed": []
+}
