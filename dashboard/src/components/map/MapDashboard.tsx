@@ -55,9 +55,9 @@ interface PopupData extends ParliamentStats {
 }
 
 interface DUNStats {
+  code_parlimen: string;
   code_dun: string;
   name: string;
-  code_parlimen: string;
   total_voters: number;
   male: number;
   female: number;
@@ -478,9 +478,11 @@ export default function MapDashboard() {
       const visible = next[group] ? 'visible' : 'none';
       const layerIds = group === 'parliament' ? PARLIAMENT_LAYER_IDS : group === 'dun' ? DUN_LAYER_IDS : DM_LAYER_IDS;
       layerIds.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible); });
+      const labels: Record<string, string> = { parliament: 'Parliament', dun: 'DUN', dm: 'DM Bubbles' };
+      toast(`${labels[group]} layer ${next[group] ? 'on' : 'off'}`, 'info', 1500);
       return next;
     });
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (drilledParl && isMobile) {
@@ -1672,6 +1674,7 @@ export default function MapDashboard() {
           onClose={() => setShowDataTable(false)}
           parliamentStats={parlStatsState}
           dunStats={dunStatsState}
+          onFlyTo={(code, type) => flyToConstituency(code, type)}
         />
 
         {/* ===== Current selection indicator (top-center) ===== */}
