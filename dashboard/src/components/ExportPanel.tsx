@@ -11,6 +11,8 @@ type FilterMode = 'all' | 'parliament' | 'dun';
 interface ExportPanelProps {
   /** Current drilled-down parliament code (e.g. 'P.092'), if any */
   drilledParl: string | null;
+  /** Incremented by MapDashboard when password is set/changed, triggers re-fetch */
+  passwordSetVersion: number;
 }
 
 interface SeatOption {
@@ -20,7 +22,7 @@ interface SeatOption {
 
 // ── Component ───────────────────────────────────────────────
 
-export default function ExportPanel({ drilledParl }: ExportPanelProps) {
+export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportPanelProps) {
   const [level, setLevel] = useState<ExportLevel>('parliament');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [selectedCode, setSelectedCode] = useState('');
@@ -33,7 +35,7 @@ export default function ExportPanel({ drilledParl }: ExportPanelProps) {
   const [dunOptions, setDunOptions] = useState<SeatOption[]>([]);
   const [isPasswordSet, setIsPasswordSet] = useState<boolean | null>(null);
 
-  // Load parliament list from the pre-computed JSON (same as map uses)
+  // Load parliament/DUN lists from pre-computed JSON (once)
   useEffect(() => {
     fetch('/stats/parliament.json')
       .then((r) => r.json())
@@ -56,12 +58,15 @@ export default function ExportPanel({ drilledParl }: ExportPanelProps) {
         );
       })
       .catch(() => {});
+  }, []);
 
+  // Re-fetch password status when password is set/changed in SettingsGear
+  useEffect(() => {
     fetch('/api/settings/password')
       .then((r) => r.json())
       .then((d) => setIsPasswordSet(d.isSet))
       .catch(() => {});
-  }, []);
+  }, [passwordSetVersion]);
 
   // Sync filter when drilledParl changes
   useEffect(() => {

@@ -374,8 +374,9 @@ export default function MapDashboard() {
     return () => window.removeEventListener('slgrvtrs:compare', handler);
   }, [addToComparison]);
 
-  // Password change callback — no-op, ExportPanel re-fetches isSet internally
-  const handlePasswordChanged = useCallback(() => {}, []);
+  // Password change callback — bump version so ExportPanel re-fetches isSet
+  const [passwordSetVersion, setPasswordSetVersion] = useState(0);
+  const handlePasswordChanged = useCallback(() => setPasswordSetVersion((v) => v + 1), []);
 
   const handleMapContainerClick = useCallback(() => {
     if (isMobile && sidebarOpen) setSidebarOpen(false);
@@ -953,7 +954,7 @@ export default function MapDashboard() {
                   <p className="text-[10px] text-amber-700 leading-relaxed">Zoom in to see DUN boundaries. Click a Parliament seat to drill down into its DUNs. Zoom further to see DM bubbles.</p>
                 </div>
               </div>
-              <ExportPanel drilledParl={drilledParl} />
+              <ExportPanel drilledParl={drilledParl} passwordSetVersion={passwordSetVersion} />
             </div>
           )}
 
