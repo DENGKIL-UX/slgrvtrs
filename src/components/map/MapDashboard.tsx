@@ -247,6 +247,7 @@ function genderDonut(male: number, female: number): string {
 // ============================================================
 
 export default function MapDashboard() {
+  const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const popupRef = useRef<Popup | null>(null);
@@ -288,6 +289,8 @@ export default function MapDashboard() {
   const [basemap, setBasemap] = useState<'light' | 'dark' | 'satellite'>('light');
   // Data table view
   const [showDataTable, setShowDataTable] = useState(false);
+  // Visualization mode: 'choropleth' (normal) or 'heatmap' (red-orange gradient)
+  const [vizMode, setVizMode] = useState<'choropleth' | 'heatmap'>('choropleth');
 
   // Summary stats — populated once the voter stats JSON has loaded (see bootstrap effect).
   // Kept as state (not a ref read during render) to satisfy react-hooks/refs.
@@ -426,13 +429,20 @@ export default function MapDashboard() {
   // Add to comparison — exposed via global event for popup HTML buttons
   const addToComparison = useCallback((code: string, name: string, type: 'parliament' | 'dun', data: Record<string, number | string>) => {
     setComparisonList(prev => {
-      if (prev.length >= 3) return prev;
-      if (prev.some(s => s.code === code)) return prev;
+      if (prev.length >= 3) {
+        toast('Comparison is full (max 3 seats)', 'warning');
+        return prev;
+      }
+      if (prev.some(s => s.code === code)) {
+        toast(`${code} already in comparison`, 'info');
+        return prev;
+      }
+      toast(`Added ${code} to comparison`, 'success');
       return [...prev, { code, name, type, data }];
     });
     setShowComparison(true);
     setActiveTab('compare');
-  }, []);
+  }, [toast]);
 
   const removeFromComparison = useCallback((code: string) => {
     setComparisonList(prev => prev.filter(s => s.code !== code));
@@ -832,6 +842,27 @@ export default function MapDashboard() {
   }, []);
   useEffect(() => { updateMetric(activeMetric); }, [activeMetric, updateMetric]);
 
+  // Apply heatmap visualization mode
+  useEffect(() => {
+    const map = mapRef.current; if (!map) return;
+    if (!map.getLayer('parliament-fill')) return;
+    if (vizMode === 'heatmap') {
+      // Heatmap: red-orange gradient based on total_voters
+      const heatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
+        50000, 'rgba(255,239,213,0.3)',
+        100000, 'rgba(255,165,0,0.6)',
+        180000, 'rgba(255,69,0,0.75)',
+        280000, 'rgba(178,34,34,0.85)',
+      ];
+      map.setPaintProperty('parliament-fill', 'fill-color', heatExpr as any);
+      map.setPaintProperty('parliament-fill', 'fill-opacity', 0.85);
+    } else {
+      // Restore choropleth
+      updateMetric(activeMetric);
+      map.setPaintProperty('parliament-fill', 'fill-opacity', theme === 'dark' ? 0.55 : 0.72);
+    }
+  }, [vizMode, activeMetric, theme, updateMetric]);
+
   const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM);
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
@@ -1116,6 +1147,27 @@ export default function MapDashboard() {
                 </div>
               </div>
 
+              {/* Visualization mode toggle */}
+              <div>
+                <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Visualization Mode</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    onClick={() => { setVizMode('choropleth'); toast('Switched to choropleth view', 'info', 1500); }}
+                    className={`flex items-center justify-center gap-1.5 py-2 text-[10px] rounded-md border transition-all ${vizMode === 'choropleth' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold shadow-sm' : theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                    Choropleth
+                  </button>
+                  <button
+                    onClick={() => { setVizMode('heatmap'); toast('Switched to heatmap view', 'info', 1500); }}
+                    className={`flex items-center justify-center gap-1.5 py-2 text-[10px] rounded-md border transition-all ${vizMode === 'heatmap' ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold shadow-sm' : theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.24 17 6.343 19 8 19 11 19 13c0 1-2 3-2 3" /></svg>
+                    Heatmap
+                  </button>
+                </div>
+              </div>
+
               {/* Metric selector */}
               <div>
                 <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Choropleth Metric</label>
@@ -1248,6 +1300,7 @@ export default function MapDashboard() {
                         a.download = `slgrvtrs_comparison_${comparisonList.length}seats.csv`;
                         a.click();
                         URL.revokeObjectURL(url);
+                        toast(`Exported ${comparisonList.length} seats to CSV`, 'success');
                       }}
                       className="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium hover:underline flex items-center gap-1"
                       title="Download comparison as CSV"
