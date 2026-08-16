@@ -1132,6 +1132,35 @@ export default function MapDashboard() {
         <div className="flex-1 overflow-y-auto">
           {activeTab === 'layers' && (
             <div className="p-3 space-y-3">
+              {/* Current selection detail card (shows when a seat is selected) */}
+              {currentSelection && (
+                <div className={`rounded-xl p-3 border animate-[slideUp_0.3s_ease-out] ${theme === 'dark' ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border-emerald-200'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${currentSelection.type === 'parliament' ? 'bg-emerald-100 text-emerald-700' : currentSelection.type === 'dun' ? 'bg-teal-100 text-teal-700' : 'bg-rose-100 text-rose-700'}`}>
+                        {currentSelection.type.toUpperCase()}
+                      </span>
+                      <span className={`text-xs font-bold ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>{currentSelection.code}</span>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCurrentSelection(null); }}
+                      className={`text-xs ${theme === 'dark' ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+                      aria-label="Clear selection"
+                    >✕</button>
+                  </div>
+                  <div className={`text-[11px] font-medium mb-2 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{currentSelection.label}</div>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowInsights(true); setShowAnalytics(false); setShowRanking(false); }}
+                      className={`flex-1 py-1.5 text-[10px] font-semibold rounded-md transition-all ${theme === 'dark' ? 'bg-violet-900/40 text-violet-300 hover:bg-violet-900/60' : 'bg-violet-100 text-violet-700 hover:bg-violet-200'}`}
+                    >AI Insights</button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowBookmarks(true); }}
+                      className={`flex-1 py-1.5 text-[10px] font-semibold rounded-md transition-all ${theme === 'dark' ? 'bg-amber-900/40 text-amber-300 hover:bg-amber-900/60' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                    >Bookmark</button>
+                  </div>
+                </div>
+              )}
               {/* Layer toggles */}
               <div>
                 <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Map Layers</label>
@@ -1557,6 +1586,7 @@ export default function MapDashboard() {
                 parl: drilledParl,
               };
             }}
+            onToast={toast}
           />
           {/* Theme + basemap toggle (controlled — state lifted to MapDashboard) */}
           <ThemeToggle
