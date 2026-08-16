@@ -89,9 +89,20 @@ Next.js 16.3.1 + @opennextjs/cloudflare 1.20.1 + wrangler 4.112.0
       "binding": "TILES",
       "bucket_name": "slgrvtrs-tiles"
     }
-  ]
+  ],
+  "ai": {
+    "binding": "AI"
+  }
 }
 ```
+
+**Bindings:**
+| Binding | Type | Resource |
+|---------|------|----------|
+| `env.DB` | D1 Database | `slgrvtrs-voters` (22 parliaments, 56 DUNs, 945 DMs) |
+| `env.TILES` | R2 Bucket | `slgrvtrs-tiles` |
+| `env.AI` | Workers AI | Llama 3.3 70B inference (free tier: 10K neurons/day) |
+| `env.ASSETS` | Assets | Static file serving |
 
 **Key observations:**
 - Uses `@opennextjs/cloudflare` (OpenNext adapter) to compile Next.js for Workers

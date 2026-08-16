@@ -359,6 +359,7 @@ CF-00 (fix next.config.ts) ✅
                     └── CF-40..42 (R2 storage — CF-40/41 DONE, CF-42 pending)
                           └── CF-50..51 (CI/CD — optional)
                                 └── CF-60..63 (Bugfixes — COMPLETE ✅)
+                                      └── CF-70..76 (Phase 6-8 bugfixes — COMPLETE ✅)
 ```
 
 ## Progress Summary
@@ -367,9 +368,13 @@ CF-00 (fix next.config.ts) ✅
 |-------|-------|--------|-------|
 | Pre-Flight | CF-00 | **DONE** | next.config.ts fixed |
 | A: Static | CF-01..04 | **SKIPPED** | Went straight to Workers |
-| B: Workers | CF-10..20 | **DONE** | Live at workers.dev; DM bubble filter bugs fixed; choropleth metric audit complete |
-| C: D1 | CF-20..28 | **DONE** | DB provisioned, 1023 rows loaded, 3 API routes live, frontend integrated |
-| 5A: Geocode | CF-30..35 | **DONE** | 945/945 DMs geocoded, boundary validation (142 fixed), 945/945 inside DUN |
+| B: Workers | CF-10..20 | **DONE** | Live at workers.dev |
+| C: D1 | CF-20..28 | **DONE** | DB provisioned, 1023 rows loaded, 3 DM API routes live |
+| 5A: Geocode | CF-30..35 | **DONE** | 945/945 DMs geocoded, boundary validation complete |
 | D: R2 | CF-40..42 | **Partial** | Bucket created + bound; PMTiles upload pending |
 | F: Bugfix | CF-60..63 | **DONE** | Compare button, search zoom, donut chart, layer toggle |
-| E: CI/CD | CF-50..51 | **Optional** | Git integration already auto-deploys |
+| E: CI/CD | CF-50..51 | **Optional** | Git integration auto-builds |
+| 6: AI | CF-AI | **DONE** | `env.AI` binding, `/api/insights` route, Llama 3.3 70B |
+| 7: Password | CF-PW | **DONE** | PBKDF2 + D1 `app_settings`, `/api/export/csv` |
+| 8: UI | CF-UI | **DONE** | Dark mode, satellite, heatmap, analytics, ranking, bookmarks, share, tour, data table, toasts, fullscreen, shortcuts, comparison charts, detail card |
+| 6-8 Bugfix | CF-70..76 | **DONE** | Search popup, theme sync, AI on CF, build fix, prod sync, DUNStats, recharts |

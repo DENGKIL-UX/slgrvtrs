@@ -34,3 +34,8 @@ node_modules/
 .dev.vars
 .open-next/
 .wrangler/
+.next/
+.open-next/
+bun.lock
+next-env.d.ts
+tsconfig.tsbuildinfo

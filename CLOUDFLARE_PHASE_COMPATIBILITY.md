@@ -230,12 +230,34 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 
 ## Conclusion
 
-**All 5 phases are fully compatible with Cloudflare deployment on the free tier.**
+**All 8 phases are fully compatible with Cloudflare deployment on the free tier.**
 
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
-- Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters (all static, zero CF changes needed)
-- Phase 4: **DEPLOYED** — responsive design, ErrorBoundary, provenance panel, Server Component refactor, ES2022 target
-- Phase 5A: **DEPLOYED** — 945 DMs geocoded (Google + Nominatim), boundary validation (142 DMs corrected), geocode_cache in D1, 2 API routes
-- Phase 5B: R2 + PMTiles is the **standard pattern** for this use case
+- Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters
+- Phase 4: **DEPLOYED** — responsive design, ErrorBoundary, provenance panel
+- Phase 5A: **DEPLOYED** — 945 DMs geocoded, geocode_cache in D1
+- Phase 5B: **DEPLOYED** — R2 bucket `slgrvtrs-tiles` active
+- Phase 6: **DEPLOYED** — AI Insights via CF AI Workers (Llama 3.3 70B, `env.AI` binding)
+- Phase 7: **DEPLOYED** — Password-protected CSV export (PBKDF2 + D1 `app_settings`)
+- Phase 8: **DEPLOYED** — UI features (dark mode, satellite basemap, heatmap, analytics drawer, ranking table, bookmarks, share, onboarding tour, data table, toast notifications, fullscreen, keyboard shortcuts, comparison charts)
+
+### Phase 6: AI Insights (CF AI Workers)
+**Status**: DEPLOYED  
+**CF Compatibility**: Full — uses native `env.AI` binding, no external API calls  
+**Model**: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (70B, FP8 quantized)  
+**Free tier**: 10,000 neurons/day (~1,400 insights/day)  
+**Route**: `POST /api/insights`  
+
+### Phase 7: Password-Protected CSV Export
+**Status**: DEPLOYED  
+**CF Compatibility**: Full — PBKDF2 via WebCrypto (10K iterations, fits free-tier CPU budget)  
+**D1 table**: `app_settings` (key-value store for password hash)  
+**Route**: `POST /api/export/csv` + `GET/PUT /api/settings/password`
+
+### Phase 8: UI Feature Suite
+**Status**: DEPLOYED  
+**CF Compatibility**: All client-side — no CF infrastructure changes needed  
+**Components**: AnalyticsDrawer, AiInsightsPanel, RankingTable, BookmarksMenu, ComparisonRadar, ComparisonBarChart, ShareButton, ThemeToggle, KeyboardShortcuts, OnboardingTour, DataTableView, Toast  
+**Features**: Dark mode (sidebar + popups + drawers), ESRI satellite basemap, heatmap visualization, fullscreen toggle, constituency detail card with mini-stats, toast notifications on all key actions
 
 The `pip-melaka` repo proves the pattern works — same org, same developer, same stack (Next.js 16 + OpenNext + Wrangler + D1), already deployed to Cloudflare.

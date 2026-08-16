@@ -2,7 +2,10 @@
 
 **SLGRVTRS | Selangor Voter Registry Dashboard**
 **Date**: 2026-08-16
-**Status**: Research complete, proof-of-concept verified
+**Status**: ✅ COMPLETE — Deployed to production (Phase 7)
+**Live**: `POST /api/export/csv` on https://slgrvtrs.ritz-analytics.workers.dev
+**Password**: Set via `PUT /api/settings/password` (PBKDF2, 10K iterations)
+**Test password**: `PAStimenang1` (verified working on production)
 
 ---
 

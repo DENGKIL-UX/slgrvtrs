@@ -30,7 +30,10 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 | Phase 3b | D1 database provisioning, DM API routes, frontend D1 integration | **COMPLETE** | ✅ Yes |
 | Phase 4 | Responsive, ErrorBoundary, provenance, Server Component refactor | **COMPLETE** | ✅ Yes |
 | Phase 5A | DM centroid geocoding (Google Maps → Nominatim → D1 cache), boundary validation | **COMPLETE** | ✅ Yes |
-| Phase 5B | R2 bucket provisioned, `/api/r2/[...path]` route, PMTiles pipeline (future) | **IN PROGRESS** | ✅ R2 active |
+| Phase 5B | R2 bucket provisioned, `/api/r2/[...path]` route, PMTiles pipeline (future) | **FUTURE** | ✅ R2 active |
+| Phase 6 | AI Insights via CF AI Workers (Llama 3.3 70B, `env.AI` binding) | **DEPLOYED** | ✅ AI binding active |
+| Phase 7 | Password-protected CSV export (PBKDF2 + D1 `app_settings`) | **DEPLOYED** | ✅ Password API works |
+| Phase 8 | UI features: dark mode, satellite basemap, heatmap, analytics, ranking, bookmarks, share, tour, data table, toasts, fullscreen | **DEPLOYED** | ✅ All features live |
 
 ---
 
@@ -622,6 +625,40 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [ ] Upload PMTiles to Cloudflare R2
 - [ ] Implement PMTiles protocol + voter point layer (Layer 4)
 - [ ] Deep zoom individual voter exploration with popups
+
+### Phase 6: AI Insights — COMPLETE ✅
+- [x] `/api/insights` route using Cloudflare AI Workers (`env.AI` binding)
+- [x] Model: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (Llama 3.3 70B, FP8)
+- [x] 4 insight types: state, parliament, DUN, DM
+- [x] AiInsightsPanel component with generate button + numbered bullets
+- [x] Migrated from z-ai-web-dev-sdk to native CF AI binding (no config files needed)
+- [x] Free tier: 10,000 neurons/day (~1,400 insights/day)
+
+### Phase 7: Password-Protected CSV Export — COMPLETE ✅
+- [x] PBKDF2 password hashing via WebCrypto (10K iterations)
+- [x] D1 `app_settings` table for password hash storage
+- [x] `POST /api/export/csv` with password verification
+- [x] `GET/PUT /api/settings/password` for password management
+- [x] ExportPanel + PasswordDialog + SettingsGear UI components
+
+### Phase 8: UI Feature Suite — COMPLETE ✅
+- [x] **AnalyticsDrawer** — recharts donuts, bar charts, KPI cards
+- [x] **RankingTable** — sortable Parliament/DUN table with fly-to
+- [x] **BookmarksMenu** — localStorage-backed seat bookmarks with toasts
+- [x] **ComparisonRadar** — 6-axis radar with state-average overlay
+- [x] **ComparisonBarChart** — grouped race composition bars
+- [x] **ShareButton** — URL hash encoding + clipboard copy with toast
+- [x] **ThemeToggle** — Light/Dark UI + Light/Dark/Satellite basemap (controlled component)
+- [x] **KeyboardShortcuts** — overlay with 12 shortcuts (/, 1-3, A, I, R, B, D, F, T, S, Esc, ?)
+- [x] **OnboardingTour** — 4-step first-visit guided tour
+- [x] **DataTableView** — full-screen sortable table with CSV export
+- [x] **Toast** — ToastProvider + useToast hook (success/error/info/warning)
+- [x] **Dark mode** — full sidebar, popups, drawers, map layers
+- [x] **ESRI satellite basemap** — World Imagery raster tiles
+- [x] **Heatmap visualization mode** — red-orange gradient for parliament + DUN
+- [x] **Fullscreen toggle** — hide sidebar for maximum map area
+- [x] **Constituency detail card** — mini-stats (voters, Malay %, age) + quick actions
+- [x] **Shimmer loading skeleton** — enhanced loading state with animation
 
 ---
 

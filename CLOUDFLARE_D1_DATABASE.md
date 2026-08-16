@@ -3,9 +3,12 @@
 > **Status**: D1 database provisioned and live. 22 parliaments, 56 DUNs, 945 DMs loaded.
 > **Last updated**: 2026-08-16
 > **Database**: `slgrvtrs-voters` (ID: `59afb76e-a3a2-4e2a-b18d-857f9f5704fb`, region APAC)
-> **Binding**: `env.DB` in `wrangler.jsonc`
-> **See**: `docs/PHASE3_D1_DATABASE_IMPLEMENTATION.md` for implementation plan (completed)
-> **Phase 5A**: geocode_cache table added, 945 DM centroid coordinates populated via Google Maps / Nominatim geocoding.
+> **Bindings**: `env.DB` (D1), `env.AI` (Workers AI), `env.TILES` (R2), `env.ASSETS` in `wrangler.jsonc`
+> **API Routes**: 11 total (3 DM, 2 geocode, 1 R2 proxy, 2 settings/password, 1 CSV export, 1 AI insights, 1 page)
+> **Phase 5A**: geocode_cache table added, 945 DM centroid coordinates populated.
+> **Phase 6**: `env.AI` binding added for AI Insights (Llama 3.3 70B). See `CF_AI_WORKERS.md`.
+> **Phase 7**: `app_settings` table for password-protected CSV export.
+> **See**: `docs/PHASE3_D1_DATABASE_IMPLEMENTATION.md` for implementation plan (completed).
 
 ---
 
