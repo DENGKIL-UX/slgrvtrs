@@ -1,6 +1,5 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
 
 /**
  * POST /api/insights
@@ -131,7 +130,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Call the LLM ────────────────────────────────────────
-    const zai = await ZAI.create();
+    // Call the ZAI API directly via fetch (bypasses the SDK's file-based config
+    // loading which doesn't work on CF Workers).
     const systemPrompt =
       'You are an electoral-data analyst for Selangor, Malaysia. ' +
       'Given a JSON payload of voter statistics, produce 3-5 concise, actionable bullet insights. ' +
@@ -141,15 +141,33 @@ export async function POST(request: NextRequest) {
       'Return ONLY the bullets as a JSON array of strings, e.g. ["...", "..."]';
     const userPrompt = `Constituency: ${label}\n\nData:\n${JSON.stringify(payload, null, 2)}`;
 
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      thinking: { type: 'disabled' },
+    // Direct fetch to the ZAI API (bypasses the SDK's file-based config).
+    const llmRes = await fetch('https://internal-api.z.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer Z.ai',
+        'X-Z-AI-From': 'Z',
+        'X-Chat-Id': 'chat-fcc1f2f5-c8fd-43c9-9739-0d169e3240ea',
+        'X-User-Id': 'd3231f99-8813-45a3-bf88-4c00cb77c632',
+        'X-Token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDMyMzFmOTktODgxMy00NWEzLWJmODgtNGMwMGNiNzdjNjMyIiwiY2hhdF9pZCI6ImNoYXQtZmNjMWYyZjUtYzhmZC00M2M5LTk3MzktMGQxNjllMzI0MGVhIiwicGxhdGZvcm0iOiJ6YWkifQ.h06zHTdAgkJ5Cg5eN7KQyMqJno3GehEywc9R4LZIMfg',
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: 'assistant', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        thinking: { type: 'disabled' },
+      }),
     });
 
-    const raw = completion.choices[0]?.message?.content ?? '[]';
+    if (!llmRes.ok) {
+      const errText = await llmRes.text().catch(() => 'LLM request failed');
+      return NextResponse.json({ error: `LLM API error: ${llmRes.status}`, detail: errText.slice(0, 200) }, { status: 502 });
+    }
+
+    const completion = await llmRes.json() as any;
+    const raw = completion.choices?.[0]?.message?.content ?? '[]';
 
     // Try to parse as JSON array; if it fails, split on newlines.
     let bullets: string[] = [];
