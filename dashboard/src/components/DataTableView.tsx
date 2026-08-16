@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { ParliamentStats, DunStats } from '@/lib/map/join-stats';
+import PasswordDialog from '@/components/PasswordDialog';
 
 interface DataTableViewProps {
   open: boolean;
@@ -60,21 +61,39 @@ export default function DataTableView({ open, onClose, parliamentStats, dunStats
     }
   };
 
+  const [showPwDialog, setShowPwDialog] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Password-protected export via server endpoint
+  const handlePasswordSubmit = useCallback(async (password: string) => {
+    setExportLoading(true);
+    try {
+      // Use the password-protected /api/export/csv endpoint
+      const res = await fetch('/api/export/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, level }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(d.error || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^";]+)"?/);
+      a.href = url;
+      a.download = match ? match[1] : `slgrvtrs_${level}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [level]);
+
   const exportCSV = () => {
-    const headers = COLUMNS.map((c) => c.label);
-    const lines = [headers.join(',')];
-    const esc = (s: string) => /[,\"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    rows.forEach((r: any) => {
-      lines.push(COLUMNS.map((c) => esc(c.fmt(r[c.key]))).join(','));
-    });
-    const csv = lines.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `slgrvtrs_${level}_table.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setShowPwDialog(true);
   };
 
   if (!open) return null;
@@ -195,6 +214,14 @@ export default function DataTableView({ open, onClose, parliamentStats, dunStats
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
       `}</style>
+
+      {/* Password dialog for export */}
+      <PasswordDialog
+        open={showPwDialog}
+        onClose={() => setShowPwDialog(false)}
+        onSubmit={handlePasswordSubmit}
+        description={`Download all ${level === 'parliament' ? '22 parliaments' : '56 DUNs'} as password-protected CSV`}
+      />
     </div>
   );
 }

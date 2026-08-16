@@ -9,6 +9,7 @@ import { buildColorExpression, getScaleById, getDunScaleById, COLOR_SCALES, DUN_
 import Legend from '@/components/map/Legend';
 import SettingsGear from '@/components/SettingsGear';
 import ExportPanel from '@/components/ExportPanel';
+import PasswordDialog from '@/components/PasswordDialog';
 import AnalyticsDrawer from '@/components/AnalyticsDrawer';
 import AiInsightsPanel from '@/components/AiInsightsPanel';
 import RankingTable from '@/components/RankingTable';
@@ -290,6 +291,8 @@ export default function MapDashboard() {
   const [basemap, setBasemap] = useState<'light' | 'dark' | 'satellite'>('light');
   // Data table view
   const [showDataTable, setShowDataTable] = useState(false);
+  // Comparison CSV export password dialog
+  const [showComparisonPwDialog, setShowComparisonPwDialog] = useState(false);
   // Visualization mode: 'choropleth' (normal) or 'heatmap' (red-orange gradient)
   const [vizMode, setVizMode] = useState<'choropleth' | 'heatmap'>('choropleth');
   // Fullscreen map mode (hides sidebar)
@@ -1362,32 +1365,9 @@ export default function MapDashboard() {
                 <div className="flex items-center gap-2">
                   {comparisonList.length > 0 && (
                     <button
-                      onClick={() => {
-                        // Export comparison seats as a side-by-side CSV
-                        const headers = ['Code', 'Name', 'Type', 'Total Voters', 'Male %', 'Female %', 'Malay %', 'Chinese %', 'Indian %', 'Others %', 'Mean Age', 'Median Age', 'Contact %'];
-                        const lines = [headers.join(',')];
-                        const esc = (s: string) => /[,\"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-                        comparisonList.forEach((s) => {
-                          const d = s.data;
-                          lines.push([
-                            s.code, s.name, s.type,
-                            d.total_voters, d.male_pct, d.female_pct,
-                            d.malay_pct, d.chinese_pct, d.indian_pct, d.other_pct,
-                            d.age_mean, d.age_median, d.contact_pct,
-                          ].map((v) => esc(String(v))).join(','));
-                        });
-                        const csv = lines.join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `slgrvtrs_comparison_${comparisonList.length}seats.csv`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        toast(`Exported ${comparisonList.length} seats to CSV`, 'success');
-                      }}
+                      onClick={() => setShowComparisonPwDialog(true)}
                       className="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium hover:underline flex items-center gap-1"
-                      title="Download comparison as CSV"
+                      title="Download comparison as CSV (password protected)"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       Export CSV
@@ -1723,6 +1703,34 @@ export default function MapDashboard() {
           dunStats={dunStatsState}
           activeMetric={activeMetric}
           onFlyTo={(code, type) => flyToConstituency(code, type)}
+        />
+
+        {/* Comparison CSV export password dialog */}
+        <PasswordDialog
+          open={showComparisonPwDialog}
+          onClose={() => setShowComparisonPwDialog(false)}
+          onSubmit={async (password: string) => {
+            const res = await fetch('/api/export/comparison', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password, seats: comparisonList }),
+            });
+            if (!res.ok) {
+              const d = await res.json().catch(() => ({ error: 'Request failed' }));
+              throw new Error(d.error || `HTTP ${res.status}`);
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const cd = res.headers.get('Content-Disposition') || '';
+            const match = cd.match(/filename="?([^";]+)"?/);
+            a.href = url;
+            a.download = match ? match[1] : `slgrvtrs_comparison_${comparisonList.length}seats.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast(`Exported ${comparisonList.length} seats to CSV`, 'success');
+          }}
+          description={`Download ${comparisonList.length} comparison seats as password-protected CSV`}
         />
       </main>
     </div>
