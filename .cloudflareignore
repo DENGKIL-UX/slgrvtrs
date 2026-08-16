@@ -1,0 +1,51 @@
+# Cloudflare Pages — files/dirs excluded from deployment
+# Matches pip-melaka .cloudflareignore pattern
+
+# Old dashboard subdirectory (code now lives at repo root)
+dashboard/
+
+# Boundary research data (large GeoJSON — not needed at runtime)
+boundaries/
+
+# Source data (large Excel files — not needed at runtime)
+data/
+
+# Analysis artifacts
+analysis/
+
+# Python scripts (build-time only)
+scripts/
+
+# Research docs (not served to users)
+*.md
+docs/
+
+# Git
+.git/
+.github/
+
+# Node modules (installed fresh during build)
+node_modules/
+
+# Local dev artifacts
+dev.log
+server.log
+*.db
+*.db-journal
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Prisma engine (not needed on Workers — D1 is used instead)
+node_modules/.prisma/
+
+# Build output (regenerated during build)
+.next/
+.open-next/

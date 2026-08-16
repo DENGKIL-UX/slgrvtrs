@@ -1,0 +1,20 @@
+# SLGRVTRS — Local development secrets for Cloudflare Workers.
+# Copy this file to .dev.vars and fill in real values.
+# .dev.vars is gitignored — NEVER commit real secrets.
+#
+# For production: use `npx wrangler secret put <NAME>`
+
+# D1 is accessed via binding (configured in wrangler.jsonc), not connection strings.
+# No DATABASE_URL needed for Cloudflare Workers.
+
+# App origin for CORS (local dev)
+NEXT_PUBLIC_APP_ORIGIN=http://localhost:3000
+
+# --- Future Phase 3+ secrets (uncomment when needed) ---
+
+# ElectionData.MY API key (if external data is integrated)
+# ELECTIONDATA_API_TOKEN=your_api_token_here
+
+# S2D Engine credentials (if intelligence pipeline is connected)
+# S2D_AUTH_TOKEN=your_32plus_char_token_here
+# S2D_ALERT_WHATSAPP_TOKEN=your_whatsapp_token_here
