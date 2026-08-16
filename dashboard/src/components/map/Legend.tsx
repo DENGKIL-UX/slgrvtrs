@@ -8,31 +8,49 @@ interface LegendProps {
 
 export default function Legend({ scale }: LegendProps) {
   return (
-    <div>
-      <h3 className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-        <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-        </svg>
-        {scale.label}
-      </h3>
-      {scale.dunApplicable === false && (
-        <p className="text-[9px] text-amber-600 mb-1.5 bg-amber-50 px-2 py-0.5 rounded">DUN: constant value</p>
-      )}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="w-1 h-3 bg-gradient-to-b from-emerald-400 to-teal-600 rounded-full" />
+          {scale.label}
+        </h3>
+        {scale.dunApplicable === false && (
+          <span className="text-[8px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full font-semibold ring-1 ring-amber-200">
+            DUN: N/A
+          </span>
+        )}
+      </div>
       <div className="relative">
-        {/* Gradient bar */}
-        <div
-          className="h-3 rounded-full overflow-hidden border border-slate-200/80"
-          style={{
-            background: `linear-gradient(to right, ${scale.stops.map(([, c]) => c).join(', ')})`,
-          }}
-        />
+        {/* Gradient bar with tick marks */}
+        <div className="relative">
+          <div
+            className="h-4 rounded-md overflow-hidden border border-slate-200/80 shadow-inner"
+            style={{
+              background: `linear-gradient(to right, ${scale.stops.map(([, c]) => c).join(', ')})`,
+            }}
+          />
+          {/* Tick marks under the bar */}
+          <div className="absolute inset-x-0 top-full flex justify-between px-px">
+            {scale.stops.map((_, i) => (
+              <div key={i} className="w-px h-1 bg-slate-300" />
+            ))}
+          </div>
+        </div>
         {/* Labels */}
-        <div className="flex justify-between mt-1">
+        <div className="flex justify-between mt-1.5">
           {scale.legendLabels.map((label, i) => (
-            <span key={i} className="text-[9px] text-slate-500 font-medium tabular-nums">
+            <span
+              key={i}
+              className={`text-[9px] font-medium tabular-nums ${i === 0 ? 'text-slate-400' : i === scale.legendLabels.length - 1 ? 'text-slate-600' : 'text-slate-500'}`}
+            >
               {label}
             </span>
           ))}
+        </div>
+        {/* Low / High indicators */}
+        <div className="flex justify-between mt-0.5">
+          <span className="text-[8px] text-slate-300 uppercase tracking-wider">Low</span>
+          <span className="text-[8px] text-slate-300 uppercase tracking-wider">High</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Map, Popup, NavigationControl, AttributionControl, LngLatBounds, type FilterSpecification } from '@/lib/map/setup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMapLibre } from '@/lib/map/setup';
@@ -13,6 +13,8 @@ import AnalyticsDrawer from '@/components/AnalyticsDrawer';
 import AiInsightsPanel from '@/components/AiInsightsPanel';
 import RankingTable from '@/components/RankingTable';
 import BookmarksMenu from '@/components/BookmarksMenu';
+import ComparisonRadar from '@/components/ComparisonRadar';
+import ShareButton from '@/components/ShareButton';
 
 // ============================================================
 // Provenance data (embedded)
@@ -140,7 +142,7 @@ type RaceFilter = 'all' | 'malay' | 'chinese' | 'indian';
 // Comparison feature types
 // ============================================================
 
-interface ComparisonSeat {
+export interface ComparisonSeat {
   code: string;
   name: string;
   type: 'parliament' | 'dun';
@@ -743,6 +745,33 @@ export default function MapDashboard() {
           }
 
           setLoading(false);
+
+          // ==== Restore view from URL hash (shareable links) ====
+          // Format: #m=<metric>&lng=<lng>&lat=<lat>&z=<zoom>&p=<parl>
+          try {
+            const hash = window.location.hash.slice(1);
+            if (hash) {
+              const params = new URLSearchParams(hash);
+              const m = params.get('m');
+              const lng = parseFloat(params.get('lng') || '');
+              const lat = parseFloat(params.get('lat') || '');
+              const z = parseFloat(params.get('z') || '');
+              const p = params.get('p');
+              if (m && !Number.isNaN(lng) && !Number.isNaN(lat) && !Number.isNaN(z)) {
+                // Apply metric (deferred to next tick so layer paint is ready)
+                queueMicrotask(() => {
+                  setActiveMetric(m);
+                  map.flyTo({ center: [lng, lat], zoom: z, duration: 600 });
+                  if (p) {
+                    // Trigger drill-down for the parliament
+                    const dunsFilter: FilterSpecification = ['==', ['get', 'parent_parl'], p] as unknown as FilterSpecification;
+                    DUN_LAYER_IDS.forEach((id) => { if (map.getLayer(id)) map.setFilter(id, dunsFilter); });
+                    setDrilledParl(p);
+                  }
+                });
+              }
+            }
+          } catch { /* ignore malformed hash */ }
         });
 
         mapRef.current = map;
@@ -791,24 +820,32 @@ export default function MapDashboard() {
       >
         {/* Header with gradient accent */}
         <div className="flex-shrink-0 border-b border-slate-200/80">
-          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 px-4 py-3 relative overflow-hidden">
+            {/* Decorative pattern overlay */}
+            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '24px 24px, 32px 32px' }} aria-hidden="true" />
+            <div className="flex items-center gap-2 relative">
+              <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-white/30 shadow-sm">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                 </svg>
               </div>
-              <div>
-                <h1 className="text-base font-bold text-white tracking-tight">SLGRVTRS</h1>
-                <p className="text-[10px] text-emerald-100">Selangor Voter Registry</p>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-base font-extrabold text-white tracking-tight leading-none">SLGRVTRS</h1>
+                <p className="text-[10px] text-emerald-50/90 mt-0.5 leading-none">Selangor Voter Registry</p>
               </div>
+              <SettingsGear onPasswordChanged={handlePasswordChanged} />
             </div>
           </div>
-          <div className="px-4 py-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">3,971,650 registered voters</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium">22 Parls &middot; 56 DUNs</span>
-              <SettingsGear onPasswordChanged={handlePasswordChanged} />
+          {/* Voter count strip with animated number */}
+          <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-sm font-bold text-slate-800 tabular-nums">3,971,650</span>
+              <span className="text-[10px] text-slate-400 font-medium">voters</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold ring-1 ring-emerald-100">22 Parls</span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded-full font-semibold ring-1 ring-teal-100">56 DUNs</span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded-full font-semibold ring-1 ring-rose-100">945 DMs</span>
             </div>
           </div>
         </div>
@@ -1017,9 +1054,13 @@ export default function MapDashboard() {
                 <div className="text-center py-6 text-slate-400">
                   <svg className="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                   <p className="text-xs">No seats selected yet</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Add 2+ seats to see the radar comparison</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  {/* Multi-axis radar chart (shows when 1+ seats) */}
+                  <ComparisonRadar seats={comparisonList} />
+                  <div className="space-y-2">
                     {comparisonList.map((seat) => {
                       const voters = (seat.data.total_voters as number) || 0;
                       const malay = Number(seat.data.malay_pct) || 0;
@@ -1054,6 +1095,7 @@ export default function MapDashboard() {
                       );
                     })}
                   </div>
+                </div>
                 )}
             </div>
           )}
@@ -1199,6 +1241,20 @@ export default function MapDashboard() {
               onFlyTo={(code, type) => flyToConstituency(code, type)}
             />
           </div>
+          {/* Share button — encodes map view into URL hash */}
+          <ShareButton
+            getState={() => {
+              const map = mapRef.current;
+              const center = map?.getCenter();
+              return {
+                lng: center?.lng ?? SELANGOR_CENTER[0],
+                lat: center?.lat ?? SELANGOR_CENTER[1],
+                zoom: map?.getZoom() ?? DEFAULT_ZOOM,
+                metric: activeMetric,
+                parl: drilledParl,
+              };
+            }}
+          />
         </div>
 
         {/* ===== Current selection indicator (top-center) ===== */}
