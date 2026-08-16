@@ -9,7 +9,7 @@ import type { ComparisonSeat } from '@/components/map/MapDashboard';
 // ── Colors per seat index (max 3) ──────────────────────────
 
 const SEAT_COLORS = ['#059669', '#7c3aed', '#db2777'];
-const SEAT_NAMES = ['Seat 1', 'Seat 2', 'Seat 3'];
+const STATE_AVG_COLOR = '#94a3b8'; // slate-400
 
 // ── Metric axes (normalized 0–100 for radar) ──────────────
 
@@ -33,19 +33,23 @@ const AXES: AxisDef[] = [
 
 interface ComparisonRadarProps {
   seats: ComparisonSeat[];
+  /** Optional state-average values for overlay (voter-weighted across all 22 parliaments) */
+  stateAverage?: Partial<Record<string, number>>;
 }
 
-export default function ComparisonRadar({ seats }: ComparisonRadarProps) {
+export default function ComparisonRadar({ seats, stateAverage }: ComparisonRadarProps) {
   if (seats.length === 0) return null;
 
-  // Build a single data array: one object per axis, with a field per seat.
-  // (No useMemo — lint flagged the dynamic `seat${i}` keys as breaking memoization.)
+  // Build a single data array: one object per axis, with a field per seat + state avg.
   const data = AXES.map((axis) => {
     const row: Record<string, number | string> = { axis: axis.label };
     seats.forEach((seat, i) => {
       const raw = Number(seat.data[axis.key as keyof typeof seat.data]) || 0;
       row[`seat${i}`] = +axis.norm(raw).toFixed(1);
     });
+    if (stateAverage && stateAverage[axis.key] != null) {
+      row['stateAvg'] = +axis.norm(stateAverage[axis.key]!).toFixed(1);
+    }
     return row;
   });
 
@@ -86,6 +90,18 @@ export default function ComparisonRadar({ seats }: ComparisonRadarProps) {
               dot={{ r: 2.5, fill: SEAT_COLORS[i], strokeWidth: 0 }}
             />
           ))}
+          {stateAverage && (
+            <Radar
+              name="State Avg"
+              dataKey="stateAvg"
+              stroke={STATE_AVG_COLOR}
+              fill={STATE_AVG_COLOR}
+              fillOpacity={0}
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              dot={false}
+            />
+          )}
           <Tooltip
             contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
             formatter={(v: number) => v.toFixed(1)}

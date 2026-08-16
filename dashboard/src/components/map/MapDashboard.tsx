@@ -17,6 +17,7 @@ import ComparisonRadar from '@/components/ComparisonRadar';
 import ShareButton from '@/components/ShareButton';
 import ThemeToggle from '@/components/ThemeToggle';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
+import OnboardingTour from '@/components/OnboardingTour';
 
 // ============================================================
 // Provenance data (embedded)
@@ -870,6 +871,34 @@ export default function MapDashboard() {
     if (map.getLayer('dun-fill')) map.setPaintProperty('dun-fill', 'fill-opacity', theme === 'dark' ? 0.45 : 0.5);
     if (map.getLayer('outline-fill')) map.setPaintProperty('outline-fill', 'fill-color', theme === 'dark' ? '#1e293b' : '#e8edf3');
     if (map.getLayer('outline-border')) map.setPaintProperty('outline-border', 'line-color', theme === 'dark' ? '#475569' : '#334155');
+
+    // Satellite basemap: add/remove ESRI World Imagery raster source + layer
+    if (basemap === 'satellite') {
+      if (!map.getSource('satellite-tiles')) {
+        map.addSource('satellite-tiles', {
+          type: 'raster',
+          tiles: [
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          ],
+          tileSize: 256,
+          attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
+        });
+        // Insert satellite layer BELOW the boundary layers (index 0 = bottom)
+        map.addLayer({
+          id: 'satellite-layer',
+          type: 'raster',
+          source: 'satellite-tiles',
+          paint: { 'raster-opacity': 0.85 },
+        }, 'outline-fill');
+      }
+    } else {
+      if (map.getLayer('satellite-layer')) {
+        map.removeLayer('satellite-layer');
+      }
+      if (map.getSource('satellite-tiles')) {
+        map.removeSource('satellite-tiles');
+      }
+    }
   }, [theme, basemap]);
 
   // Global keyboard shortcuts
@@ -978,21 +1007,21 @@ export default function MapDashboard() {
             </div>
           </div>
           {/* Voter count strip with animated number */}
-          <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+          <div className={`px-4 py-2 flex items-center justify-between bg-gradient-to-r ${theme === 'dark' ? 'from-slate-800 to-slate-900' : 'from-slate-50 to-white'}`}>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-sm font-bold text-slate-800 tabular-nums">3,971,650</span>
-              <span className="text-[10px] text-slate-400 font-medium">voters</span>
+              <span className={`text-sm font-bold tabular-nums ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>3,971,650</span>
+              <span className={`text-[10px] font-medium ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>voters</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold ring-1 ring-emerald-100">22 Parls</span>
-              <span className="text-[9px] px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded-full font-semibold ring-1 ring-teal-100">56 DUNs</span>
-              <span className="text-[9px] px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded-full font-semibold ring-1 ring-rose-100">945 DMs</span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ring-1 ${theme === 'dark' ? 'bg-emerald-900/40 text-emerald-300 ring-emerald-800' : 'bg-emerald-50 text-emerald-700 ring-emerald-100'}`}>22 Parls</span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ring-1 ${theme === 'dark' ? 'bg-teal-900/40 text-teal-300 ring-teal-800' : 'bg-teal-50 text-teal-700 ring-teal-100'}`}>56 DUNs</span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ring-1 ${theme === 'dark' ? 'bg-rose-900/40 text-rose-300 ring-rose-800' : 'bg-rose-50 text-rose-700 ring-rose-100'}`}>945 DMs</span>
             </div>
           </div>
         </div>
 
         {/* Search bar */}
-        <div className="px-3 py-2 border-b border-slate-100 flex-shrink-0 relative">
+        <div className={`px-3 py-2 border-b flex-shrink-0 relative ${theme === 'dark' ? 'border-slate-800' : 'border-slate-100'}`}>
           <div className="relative">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1003,7 +1032,7 @@ export default function MapDashboard() {
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               onFocus={() => setShowSearch(true)}
-              className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all placeholder:text-slate-400"
+              className={`w-full h-8 pl-8 pr-3 text-xs rounded-lg border focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all placeholder:text-slate-400 ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50/50 border-slate-200 text-slate-800 focus:bg-white'}`}
             />
             {searchQuery && (
               <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -1012,12 +1041,12 @@ export default function MapDashboard() {
             )}
           </div>
           {showSearch && searchResults.length > 0 && (
-            <div className="absolute top-full left-3 right-3 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 z-50 max-h-48 overflow-y-auto">
+            <div className={`absolute top-full left-3 right-3 mt-1 rounded-lg shadow-xl border z-50 max-h-48 overflow-y-auto ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
               {searchResults.map((r) => (
                 <button
                   key={r.code}
                   onClick={() => flyToConstituency(r.code, r.type)}
-                  className="w-full text-left px-3 py-2 hover:bg-emerald-50 transition-colors flex items-center gap-2 border-b border-slate-50 last:border-0"
+                  className={`w-full text-left px-3 py-2 transition-colors flex items-center gap-2 border-b last:border-0 ${theme === 'dark' ? 'hover:bg-slate-700 border-slate-700' : 'hover:bg-emerald-50 border-slate-50'}`}
                 >
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${r.type === 'parliament' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-700'}`}>{r.type === 'parliament' ? 'PARL' : 'DUN'}</span>
                   <span className="text-xs text-slate-700 font-medium">{r.code}</span>
@@ -1051,7 +1080,7 @@ export default function MapDashboard() {
             <div className="p-3 space-y-3">
               {/* Layer toggles */}
               <div>
-                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Map Layers</label>
+                <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Map Layers</label>
                 <div className="space-y-1">
                   {[
                     { key: 'parliament' as const, label: 'Parliament', count: '22', activeColor: '#10b981' },
@@ -1061,19 +1090,19 @@ export default function MapDashboard() {
                     <button
                       key={key}
                       onClick={() => toggleLayer(key)}
-                      className="flex items-center gap-2.5 cursor-pointer group py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors w-full text-left"
+                      className={`flex items-center gap-2.5 cursor-pointer group py-1.5 px-2 rounded-lg transition-colors w-full text-left ${theme === 'dark' ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}
                     >
                       <div
                         className="w-8 h-4 rounded-full transition-colors relative flex-shrink-0"
-                        style={{ backgroundColor: layers[key] ? activeColor : '#e2e8f0' }}
+                        style={{ backgroundColor: layers[key] ? activeColor : (theme === 'dark' ? '#475569' : '#e2e8f0') }}
                       >
                         <div
                           className="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform"
                           style={{ transform: layers[key] ? 'translateX(16px)' : 'translateX(2px)' }}
                         />
                       </div>
-                      <span className="text-xs text-slate-700 group-hover:text-slate-900 flex-1">{label}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{count}</span>
+                      <span className={`text-xs flex-1 ${theme === 'dark' ? 'text-slate-200 group-hover:text-white' : 'text-slate-700 group-hover:text-slate-900'}`}>{label}</span>
+                      <span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{count}</span>
                     </button>
                   ))}
                 </div>
@@ -1081,11 +1110,11 @@ export default function MapDashboard() {
 
               {/* Metric selector */}
               <div>
-                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Choropleth Metric</label>
+                <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Choropleth Metric</label>
                 <select
                   value={activeMetric}
                   onChange={(e) => setActiveMetric(e.target.value)}
-                  className="w-full h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
+                  className={`w-full h-8 rounded-lg border px-3 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`}
                 >
                   {COLOR_SCALES.filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i).map((s) => (
                     <option key={s.id} value={s.id}>{s.label}</option>
@@ -1095,24 +1124,24 @@ export default function MapDashboard() {
 
               {/* DM Filters */}
               <div>
-                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">DM Demographic Filter</label>
+                <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>DM Demographic Filter</label>
                 <div className="space-y-2">
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1">Gender</label>
+                    <label className={`text-[10px] block mb-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Gender</label>
                     <div className="flex gap-1">
                       {(['all', 'male', 'female'] as const).map((g) => (
                         <button key={g} onClick={() => setGenderFilter(g)}
-                          className={`flex-1 text-[10px] py-1.5 rounded-md border transition-all ${genderFilter === g ? 'bg-blue-50 border-blue-300 text-blue-700 font-semibold shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'}`}
+                          className={`flex-1 text-[10px] py-1.5 rounded-md border transition-all ${genderFilter === g ? 'bg-blue-50 border-blue-300 text-blue-700 font-semibold shadow-sm' : theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'}`}
                         >{g === 'all' ? 'All' : g === 'male' ? 'Male' : 'Female'}</button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1">Ethnicity</label>
+                    <label className={`text-[10px] block mb-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Ethnicity</label>
                     <div className="flex gap-1">
                       {(['all', 'malay', 'chinese', 'indian'] as const).map((r) => (
                         <button key={r} onClick={() => setRaceFilter(r)}
-                          className={`flex-1 text-[10px] py-1.5 rounded-md border transition-all ${raceFilter === r ? 'bg-amber-50 border-amber-300 text-amber-700 font-semibold shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'}`}
+                          className={`flex-1 text-[10px] py-1.5 rounded-md border transition-all ${raceFilter === r ? 'bg-amber-50 border-amber-300 text-amber-700 font-semibold shadow-sm' : theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'}`}
                         >{r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}</button>
                       ))}
                     </div>
@@ -1121,19 +1150,19 @@ export default function MapDashboard() {
               </div>
 
               {/* Legend */}
-              <div className="bg-slate-50/50 rounded-lg p-3 border border-slate-100">
+              <div className={`rounded-lg p-3 border ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/50 border-slate-100'}`}>
                 <Legend scale={currentScale} />
               </div>
 
               {/* Quick stats summary */}
               {summaryStats && (
                 <div>
-                  <button onClick={() => setShowStats(!showStats)} className="flex items-center justify-between w-full text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                  <button onClick={() => setShowStats(!showStats)} className={`flex items-center justify-between w-full text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <span>Quick Statistics</span>
                     <svg className={`w-3 h-3 transition-transform ${showStats ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {showStats && (
-                    <div className="bg-gradient-to-br from-slate-50 to-emerald-50/30 rounded-lg p-3 space-y-2 border border-slate-100">
+                    <div className={`rounded-lg p-3 space-y-2 border ${theme === 'dark' ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' : 'bg-gradient-to-br from-slate-50 to-emerald-50/30 border-slate-100'}`}>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="bg-white rounded-md p-2 border border-slate-100">
                           <div className="text-[9px] text-slate-400">Largest Seat</div>
@@ -1234,7 +1263,17 @@ export default function MapDashboard() {
               ) : (
                 <div className="space-y-3">
                   {/* Multi-axis radar chart (shows when 1+ seats) */}
-                  <ComparisonRadar seats={comparisonList} />
+                  <ComparisonRadar
+                    seats={comparisonList}
+                    stateAverage={summaryStats ? {
+                      total_voters: summaryStats.totalVoters / 22,
+                      malay_pct: summaryStats.avgMalay,
+                      chinese_pct: summaryStats.avgChinese,
+                      indian_pct: summaryStats.avgIndian,
+                      age_mean: summaryStats.avgAge,
+                      contact_pct: summaryStats.avgContact,
+                    } : undefined}
+                  />
                   <div className="space-y-2">
                     {comparisonList.map((seat) => {
                       const voters = (seat.data.total_voters as number) || 0;
@@ -1441,6 +1480,9 @@ export default function MapDashboard() {
 
         {/* ===== Keyboard shortcuts help button (bottom-right) ===== */}
         <KeyboardShortcuts />
+
+        {/* ===== First-visit onboarding tour ===== */}
+        <OnboardingTour />
 
         {/* ===== Current selection indicator (top-center) ===== */}
         {currentSelection && !loading && (

@@ -131,13 +131,12 @@ export default function ThemeToggle({ theme, basemap, onThemeChange, onBasemapCh
             {([
               { id: 'light' as const, label: 'Light', desc: 'Soft blue-gray', color: '#f0f4f8' },
               { id: 'dark' as const, label: 'Dark', desc: 'Slate-900', color: '#0f172a' },
-              { id: 'satellite' as const, label: 'Satellite', desc: 'Imagery (coming soon)', color: 'linear-gradient(135deg, #1e3a5f, #2d5016)' },
+              { id: 'satellite' as const, label: 'Satellite', desc: 'ESRI World Imagery', color: 'linear-gradient(135deg, #1e3a5f, #2d5016)' },
             ]).map((opt) => (
               <button
                 key={opt.id}
                 onClick={() => handleSelectBasemap(opt.id)}
-                disabled={opt.id === 'satellite'}
-                className={`w-full flex items-center gap-2.5 p-2 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`w-full flex items-center gap-2.5 p-2 rounded-lg border transition-all ${
                   basemap === opt.id
                     ? theme === 'dark'
                       ? 'border-emerald-400 bg-emerald-900/20'
