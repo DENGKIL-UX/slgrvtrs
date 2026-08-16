@@ -132,6 +132,45 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
     setShowPwDialog(true);
   };
 
+  // Handle "Download All 945 DMs (Sorted)" — uses a separate endpoint
+  const handleAllDmExport = useCallback(async (password: string) => {
+    const res = await fetch('/api/export/dm-xlsx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(d.error || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^";]+)"?/);
+    a.href = url;
+    a.download = match ? match[1] : 'slgrvtrs_all_945_dms_sorted.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    setToast({ ok: true, text: 'Exported 945 DMs (sorted)' });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // Click "Download All 945 DMs" button
+  const handleAllDmClick = () => {
+    if (isPasswordSet === false) {
+      setToast({ ok: false, text: 'Set a password in Settings (gear icon) first' });
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    // Reuse the password dialog with a different handler
+    setShowPwDialog(true);
+    // Override the onSubmit temporarily by setting a flag
+    setAllDmMode(true);
+  };
+
+  const [allDmMode, setAllDmMode] = useState(false);
+
   const filterOptions: { value: FilterMode; label: string }[] =
     level === 'parliament'
       ? [{ value: 'all', label: 'All Parliaments (22)' }]
@@ -238,12 +277,24 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
         </svg>
       </button>
 
+      {/* Download ALL 945 DMs sorted button */}
+      <button
+        onClick={handleAllDmClick}
+        disabled={loading}
+        className="w-full flex items-center justify-center gap-2 py-2 text-[11px] font-semibold rounded-lg transition-all border shadow-sm disabled:opacity-50 bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Download All 945 DMs (Sorted)
+      </button>
+
       {/* Password dialog */}
       <PasswordDialog
         open={showPwDialog}
-        onClose={() => setShowPwDialog(false)}
-        onSubmit={handlePasswordSubmit}
-        description={exportDescription()}
+        onClose={() => { setShowPwDialog(false); setAllDmMode(false); }}
+        onSubmit={allDmMode ? handleAllDmExport : handlePasswordSubmit}
+        description={allDmMode ? 'Download all 945 DMs sorted by DM code as CSV' : exportDescription()}
       />
     </div>
   );
