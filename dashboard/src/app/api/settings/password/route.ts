@@ -7,7 +7,7 @@ import {
   setPasswordHash,
 } from '@/lib/auth/password';
 
-export const runtime = 'edge';
+// Edge runtime is implicit on Cloudflare Workers via @opennextjs/cloudflare
 
 /** GET — check if a password has been set */
 export async function GET() {

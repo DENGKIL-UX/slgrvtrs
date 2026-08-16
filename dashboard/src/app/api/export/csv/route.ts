@@ -11,7 +11,7 @@ import {
   mapDmRow,
 } from '@/lib/csv/builder';
 
-export const runtime = 'edge';
+// Edge runtime is implicit on Cloudflare Workers via @opennextjs/cloudflare
 
 export async function POST(request: NextRequest) {
   try {
