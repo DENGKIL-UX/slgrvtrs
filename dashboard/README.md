@@ -14,12 +14,17 @@ npm run build:cf   # Build for Cloudflare Workers
 npx wrangler dev    # Local dev with D1 (requires wrangler)
 ```
 
-## Features (Phase 1–5A)
+## Features (Phase 1–5B)
 
 - **Parliament choropleth** (22 seats) with 10 switchable metrics
 - **DUN drill-down** (56 seats) with 9 dynamic choropleth metrics
 - **DM bubble layer** (945 centroids) with race/gender proportional filters
-- **D1 database** with 3 API routes (`/api/dm`, `/api/dm/[code]`, `/api/dm/search`)
+- **Search** — fuzzy search Parliament/DUN by code or name, click to flyTo
+- **Seat comparison** — add up to 3 seats from popups for side-by-side stats
+- **CSV export** — download all Parliament + DUN stats
+- **SVG donut charts** — gender distribution in popups
+- **D1 database** with 3 DM API routes (`/api/dm`, `/api/dm/[code]`, `/api/dm/search`)
+- **R2 storage** (`slgrvtrs-tiles` bucket, `/api/r2/[...path]` route)
 - **DM geocoding** (Phase 5A) — 945/945 real coordinates via Google Maps + Nominatim, boundary-validated
 - **Responsive design** with mobile sidebar collapse
 - **ErrorBoundary** and **provenance panel**
@@ -33,6 +38,7 @@ npx wrangler dev    # Local dev with D1 (requires wrangler)
 | TypeScript | 5 | ES2022 target |
 | Tailwind CSS | 4 | Utility-first styling |
 | Cloudflare D1 | Provisioned | 22 parliaments, 56 DUNs, 945 DMs |
+| Cloudflare R2 | Active | `slgrvtrs-tiles` bucket, `/api/r2/[...path]` |
 | @opennextjs/cloudflare | 1.20.1 | Next.js → CF Workers adapter |
 
 ## Architecture
@@ -44,6 +50,7 @@ npx wrangler dev    # Local dev with D1 (requires wrangler)
 - `src/app/api/dm/search/route.ts` — GET /api/dm/search?q= (name autocomplete)
 - `src/app/api/geocode/route.ts` — POST /api/geocode (cache → Google → Nominatim geocoding)
 - `src/app/api/geocode/status/route.ts` — GET /api/geocode/status (geocoding stats)
+- `src/app/api/r2/[...path]/route.ts` — R2 object proxy for slgrvtrs-tiles bucket
 - `src/lib/map/setup.ts` — MapLibre worker URL config + named re-exports
 - `src/lib/map/join-stats.ts` — Stats JSON → GeoJSON property join
 - `src/lib/map/color-scales.ts` — 10 Parliament + 9 DUN color scales + expression builder

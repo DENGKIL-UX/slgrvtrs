@@ -1,7 +1,7 @@
 # Cloudflare D1 Database — SLGRVTRS Voter Data
 
 > **Status**: D1 database provisioned and live. 22 parliaments, 56 DUNs, 945 DMs loaded.
-> **Last updated**: 2026-08-15
+> **Last updated**: 2026-08-16
 > **Database**: `slgrvtrs-voters` (ID: `59afb76e-a3a2-4e2a-b18d-857f9f5704fb`, region APAC)
 > **Binding**: `env.DB` in `wrangler.jsonc`
 > **See**: `docs/PHASE3_D1_DATABASE_IMPLEMENTATION.md` for implementation plan (completed)

@@ -1,7 +1,7 @@
 # Cloudflare Implementation Checklist — SLGRVTRS
 
-> **Status**: Phase B COMPLETE — Workers deployment live on free tier. Phase 4 COMPLETE.
-> **Last updated**: 2026-08-15
+> **Status**: Phase B COMPLETE — Workers deployment live on free tier. Phase 5B R2 active.
+> **Last updated**: 2026-08-16
 > **Deployed URL**: https://slgrvtrs.ritz-analytics.workers.dev
 > **Reference**: `CLOUDFLARE_DEPLOYMENT.md`, `CLOUDFLARE_D1_DATABASE.md`, `CLOUDFLARE_PHASE_COMPATIBILITY.md`
 > **Pattern source**: `DENGKIL-UX/pip-melaka` (verified working deployment)
@@ -277,23 +277,28 @@ Migration `0005_geocode_cache.sql` applied. Table stores SHA-256 hashed query �
 
 ---
 
-## Phase D: R2 Storage (Phase 5B PMTiles)
+## Phase D: R2 Storage (Phase 5B) — PARTIALLY COMPLETE
 
-### [ ] CF-40: Create R2 Bucket
+> R2 bucket created and bound. API route deployed. PMTiles upload pending.
+
+### [x] CF-40: Create R2 Bucket
 
 ```bash
 npx wrangler r2 bucket create slgrvtrs-tiles
+# Bucket created, bound as env.TILES in wrangler.jsonc
 ```
 
-### [ ] CF-41: Uncomment R2 Binding in wrangler.jsonc
+### [x] CF-41: Uncomment R2 Binding in wrangler.jsonc
 
-Remove the comments around `r2_buckets` in `wrangler.jsonc`.
+Done. `r2_buckets` block with binding `TILES` → `slgrvtrs-tiles` is active in `wrangler.jsonc`. Build log confirms: `env.TILES (slgrvtrs-tiles) R2 Bucket`.
 
 ### [ ] CF-42: Upload PMTiles
 
 ```bash
 npx wrangler r2 object put slgrvtrs-tiles/voters.pmtiles --file=./artifacts/voters.pmtiles
 ```
+
+Pending — requires building the tippecanoe PMTiles pipeline first.
 
 ---
 
@@ -314,6 +319,35 @@ Already configured via CF dashboard Git integration. Pushes to `main` auto-deplo
 
 ---
 
+## Phase F: Post-Deploy Bugfixes
+
+> **COMPLETE.** Four interactive bugs found and fixed after Phase 5B deployment.
+
+### [x] CF-60: Fix "+ Compare" button not working
+
+**Symptom**: Clicking "+ Compare" in Parliament/DUN popup did nothing. F12 console showed `SyntaxError: Unexpected end of input`.
+**Root cause**: `JSON.stringify()` output containing double-quotes was injected directly into an `onclick="..."` HTML attribute. The HTML parser closed the attribute at the first inner `"`, truncating the JavaScript.
+**Fix**: Added `escapeHTMLAttr()` helper. JSON data stored in a `data-c` attribute (HTML-escaped), read via `JSON.parse(this.dataset.c)` in the onclick handler. Both Parliament and DUN popups fixed.
+**Commit**: `61ec8c3`
+
+### [x] CF-61: Fix search result click not flying to constituency
+
+**Symptom**: Clicking a Parliament or DUN search result did not zoom the map.
+**Root cause**: `flyToConstituency()` accessed GeoJSON data via `source._data` which is not reliably exposed by MapLibre GL JS.
+**Fix**: Stored independent GeoJSON references in `parlGeojsonRef` and `dunGeojsonRef` during bootstrap. `flyToConstituency()` now uses these refs to compute bounds.
+
+### [x] CF-62: Implement actual SVG gender donut chart
+
+**Symptom**: Feature documented as "gender donut bar" but only rendered a horizontal two-color bar.
+**Fix**: Replaced `genderDonut()` implementation with a real SVG donut chart using `stroke-dasharray` on `<circle>` elements. Shows male/female percentages with legend, total voter count in center.
+
+### [x] CF-63: Fix layer toggle not working
+
+**Symptom**: Parliament/DUN/DM layer toggle checkboxes did not show/hide layers.
+**Fix**: Layer toggle now correctly calls `map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')` for all layer IDs in each group.
+
+---
+
 ## Dependency Tree
 
 ```
@@ -322,8 +356,9 @@ CF-00 (fix next.config.ts) ✅
   └── CF-10..19a (Workers deploy + post-deploy fixes + choropleth audit — COMPLETE ✅)
         └── CF-20..28 (D1 database — COMPLETE ✅)
               └── CF-30..35 (Geocoding + boundary validation — COMPLETE ✅)
-                    └── CF-40..42 (R2 storage — future)
+                    └── CF-40..42 (R2 storage — CF-40/41 DONE, CF-42 pending)
                           └── CF-50..51 (CI/CD — optional)
+                                └── CF-60..63 (Bugfixes — COMPLETE ✅)
 ```
 
 ## Progress Summary
@@ -335,5 +370,6 @@ CF-00 (fix next.config.ts) ✅
 | B: Workers | CF-10..20 | **DONE** | Live at workers.dev; DM bubble filter bugs fixed; choropleth metric audit complete |
 | C: D1 | CF-20..28 | **DONE** | DB provisioned, 1023 rows loaded, 3 API routes live, frontend integrated |
 | 5A: Geocode | CF-30..35 | **DONE** | 945/945 DMs geocoded, boundary validation (142 fixed), 945/945 inside DUN |
-| D: R2 | CF-40..42 | **Future** | Needs PMTiles build first (Phase 5B) |
+| D: R2 | CF-40..42 | **Partial** | Bucket created + bound; PMTiles upload pending |
+| F: Bugfix | CF-60..63 | **DONE** | Compare button, search zoom, donut chart, layer toggle |
 | E: CI/CD | CF-50..51 | **Optional** | Git integration already auto-deploys |

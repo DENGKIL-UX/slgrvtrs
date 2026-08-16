@@ -1,7 +1,7 @@
 # Provenance of Electoral Boundary Data — Selangor Voter Registry
 
 **Project**: [DENGKIL-UX/slgrvtrs](https://github.com/DENGKIL-UX/slgrvtrs)  
-**Last updated**: 14 August 2026  
+**Last updated**: 16 August 2026  
 **Scope**: Selangor state — 22 Parliamentary constituencies (P92–P113), 56 State Assembly (DUN) constituencies (N01–N56), 3,971,650 registered voters
 
 ---

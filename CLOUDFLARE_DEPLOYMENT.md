@@ -1,7 +1,7 @@
 # Cloudflare Deployment — SLGRVTRS
 
 > **Status**: DEPLOYED — Workers mode live on free tier (no credit card)
-> **Last updated**: 2026-08-15
+> **Last updated**: 2026-08-16
 > **Deployed URL**: https://slgrvtrs.ritz-analytics.workers.dev
 > **Deployment mode**: OpenNext Workers (`@opennextjs/cloudflare`)
 > **Reference**: `DENGKIL-UX/pip-melaka` (verified working deployment, same org/stack)
@@ -76,7 +76,20 @@ Next.js 16.3.1 + @opennextjs/cloudflare 1.20.1 + wrangler 4.112.0
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "slgrvtrs-voters",
+      "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "TILES",
+      "bucket_name": "slgrvtrs-tiles"
+    }
+  ]
 }
 ```
 
@@ -172,7 +185,7 @@ Excludes `data/`, `analysis/`, `scripts/`, `*.md`, `docs/`, `.git/`, `node_modul
 | Rows read/day | 5,000,000 |
 | Rows written/day | 100,000 |
 
-### 3.4 R2 Free Tier (Phase 5, not yet provisioned)
+### 3.4 R2 Free Tier (Phase 5B, provisioned)
 
 | Resource | Free Limit |
 |----------|-----------|
@@ -338,7 +351,7 @@ D1 uses **bindings** (not connection strings). The `DB` binding is available in 
 
 ## 9. Confirmed Build Output
 
-> From the production build log on 2026-08-15. Version ID: `83ff0bc7-96b0-4041-a3c8-3803245a0b1f`
+> From the production build log on 2026-08-16. Version ID: `45ef4db4-bb1c-4539-901c-ac97c171e464`
 
 ### 9.1 Build Environment
 
@@ -393,36 +406,29 @@ Total: 48 files
 ### 9.4 Worker Bindings (Current)
 
 ```
-Binding            Resource
-env.ASSETS         Assets
-env.DB              D1 Database (slgrvtrs-voters, 22 parl + 56 DUNs + 945 DMs + geocode_cache)
+Binding                           Resource
+env.DB (slgrvtrs-voters)          D1 Database
+env.TILES (slgrvtrs-tiles)        R2 Bucket
+env.ASSETS                        Assets
 ```
 
-D1 binding active since Phase 3b. R2 binding planned for Phase 5.
+D1 binding active since Phase 3b. R2 binding active since Phase 5B (`slgrvtrs-tiles` bucket).
 
 ### 9.5 Routes
 
 ```
 Route (app)
-┌ ○ /
-└ ○ /_not-found
+├ ○ /
+├ ○ /_not-found
+├ ƒ /api/dm               (D1: list/search DMs as GeoJSON or JSON)
+├ ƒ /api/dm/[code]        (D1: single DM lookup)
+├ ƒ /api/dm/search        (D1: name autocomplete)
+├ ƒ /api/geocode           (POST: single DM geocode, cache → Google → Nominatim)
+├ ƒ /api/geocode/status    (GET: geocoding batch stats)
+└ ƒ /api/r2/[...path]     (R2: serve static assets from slgrvtrs-tiles bucket)
 
 ○  (Static)  prerendered as static content
-```
-
-### 9.6 API Routes
-
-```
-Route (app)
-┌ ○ /
-├ ○ /_not-found
-├ ○ /api/dm               (D1: list/search DMs as GeoJSON or JSON)
-├ ○ /api/dm/[code]        (D1: single DM lookup)
-├ ○ /api/dm/search        (D1: name autocomplete)
-├ ○ /api/geocode           (POST: single DM geocode, cache → Google → Nominatim)
-└ ○ /api/geocode/status    (GET: geocoding batch stats)
-
-○  (Static or Server Function)  All above serve from Worker
+ƒ  (Dynamic)  server-rendered on demand
 ```
 
 ---

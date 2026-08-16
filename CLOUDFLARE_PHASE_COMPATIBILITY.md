@@ -1,9 +1,9 @@
 # Cloudflare Deployment — Phase Compatibility Analysis
 
-> **Status**: Phase B (Workers) deployed and live.
-> **Last updated**: 2026-08-15
+> **Status**: Phase B (Workers) deployed and live. R2 bucket active.
+> **Last updated**: 2026-08-16
 > **Deployed URL**: https://slgrvtrs.ritz-analytics.workers.dev
-> **Conclusion**: All 5 phases are compatible with Cloudflare deployment. No architectural changes required.
+> **Conclusion**: All 5 phases are compatible with Cloudflare deployment. Phase 5B R2 bucket provisioned and bound.
 
 ---
 
@@ -16,7 +16,7 @@
 | **Phase 3** | DM bubble visualization, DUN choropleth (9 metrics), race/gender filters, D1 database, DM API routes | Yes | Static + D1 | D1 provisioned with 945 DMs, 3 API routes, frontend fallback | None |
 | **Phase 4** | Polish & deploy — responsive, ErrorBoundary, provenance, Server Component | Yes | Static Pages + Workers | None | None |
 | **Phase 5A** | DM centroid geocoding, boundary validation | Yes | Workers + D1 | geocode_cache table, 2 API routes, batch validation scripts | None |
-| **Phase 5B** | Individual voter points (PMTiles) | Yes | Workers + R2 | Add R2 for PMTiles | Low |
+| **Phase 5B** | Individual voter points (PMTiles) | Yes | Workers + R2 | R2 bucket `slgrvtrs-tiles` created and bound, `/api/r2/[...path]` route deployed | None |
 
 ---
 

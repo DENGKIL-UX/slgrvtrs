@@ -331,12 +331,14 @@ boundaries/research/
 
 ---
 
-## 9. Next Steps
+## 9. Next Steps — COMPLETED (Phase 1)
 
-1. **Filter** `electiondata_2018_parlimen.geojson` to Selangor 22 seats → `selangor_parliament.geojson`
-2. **Filter** `dosm_dun.json` to Selangor 56 seats → `selangor_dun.geojson`
-3. **Filter** `jakim_state.geojson` to Selangor → `selangor_outline.geojson`
-4. **Add** `voter_prefix` property to each for easy MapLibre matching
-5. **Move** processed files to `public/boundaries/` for the dashboard
-6. **Update** `MAPLIBRE_PROJECT.md` to reflect final source decisions
-7. **Commit** processed boundary files to the repository
+All steps below were completed during Phase 1 of the project:
+
+1. **Filtered** `electiondata_2018_parlimen.geojson` to Selangor 22 seats → `public/boundaries/selangor_parliament.geojson`
+2. **Filtered** `dosm_dun.json` to Selangor 56 seats → `public/boundaries/selangor_dun.geojson`
+3. **Filtered** `jakim_state.geojson` to Selangor → `public/boundaries/selangor_outline.geojson`
+4. **Added** `voter_prefix` property to each for easy MapLibre matching
+5. **Placed** processed files in `dashboard/public/boundaries/` for the dashboard
+6. **Referenced** `MAPLIBRE_PROJECT.md` which reflects final source decisions
+7. **Committed** processed boundary files to the repository
