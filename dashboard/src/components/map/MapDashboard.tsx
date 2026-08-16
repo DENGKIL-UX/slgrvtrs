@@ -7,6 +7,8 @@ import { initMapLibre } from '@/lib/map/setup';
 import { joinStatsToGeoJSON, type StatsMap, type ParliamentStats } from '@/lib/map/join-stats';
 import { buildColorExpression, getScaleById, getDunScaleById, COLOR_SCALES, DUN_COLOR_SCALES, type ColorScale } from '@/lib/map/color-scales';
 import Legend from '@/components/map/Legend';
+import SettingsGear from '@/components/SettingsGear';
+import ExportPanel from '@/components/ExportPanel';
 
 // ============================================================
 // Provenance data (embedded)
@@ -372,25 +374,8 @@ export default function MapDashboard() {
     return () => window.removeEventListener('slgrvtrs:compare', handler);
   }, [addToComparison]);
 
-  // Export CSV
-  const exportCSV = useCallback(() => {
-    const stats = statsRef.current;
-    const dunStats = dunStatsRef.current;
-    const headers = ['Type', 'Code', 'Name', 'Total Voters', 'Male', 'Female', 'Male %', 'Female %', 'Malay %', 'Chinese %', 'Indian %', 'Others %', 'Mean Age', 'Median Age', 'Contact %'];
-    const rows: string[][] = [];
-    for (const s of Object.values(stats)) {
-      rows.push(['Parliament', s.code_parlimen, s.name, String(s.total_voters), String(s.male), String(s.female), String(s.male_pct), String(s.female_pct), String(s.malay_pct), String(s.chinese_pct), String(s.indian_pct), String(s.other_pct), String(s.age_mean), String(s.age_median), String(s.contact_pct)]);
-    }
-    for (const s of Object.values(dunStats)) {
-      rows.push(['DUN', s.code_dun, s.name, String(s.total_voters), String(s.male), String(s.female), String(s.male_pct), String(s.female_pct), String(s.malay_pct), String(s.chinese_pct), String(s.indian_pct), String(s.other_pct), String(s.age_mean), String(s.age_median), String(s.contact_pct)]);
-    }
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'slgrvtrs_data.csv'; a.click();
-    URL.revokeObjectURL(url);
-  }, []);
+  // Password change callback — no-op, ExportPanel re-fetches isSet internally
+  const handlePasswordChanged = useCallback(() => {}, []);
 
   const handleMapContainerClick = useCallback(() => {
     if (isMobile && sidebarOpen) setSidebarOpen(false);
@@ -774,7 +759,10 @@ export default function MapDashboard() {
           </div>
           <div className="px-4 py-2 flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">3,971,650 registered voters</span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium">22 Parls &middot; 56 DUNs</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium">22 Parls &middot; 56 DUNs</span>
+              <SettingsGear onPasswordChanged={handlePasswordChanged} />
+            </div>
           </div>
         </div>
 
@@ -965,12 +953,7 @@ export default function MapDashboard() {
                   <p className="text-[10px] text-amber-700 leading-relaxed">Zoom in to see DUN boundaries. Click a Parliament seat to drill down into its DUNs. Zoom further to see DM bubbles.</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={exportCSV} className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  Export CSV
-                </button>
-              </div>
+              <ExportPanel drilledParl={drilledParl} />
             </div>
           )}
 
@@ -1043,7 +1026,7 @@ export default function MapDashboard() {
         {/* Footer */}
         <div className="px-3 py-2 border-t border-slate-200/80 flex-shrink-0 bg-slate-50/50">
           <p className="text-[9px] text-slate-400 leading-relaxed">Boundaries: MECo (CC0) &middot; Not official SPR boundaries.</p>
-          <p className="text-[9px] text-slate-400 mt-0.5">Phase 6 &middot; Donut Charts, R2, Bug Fixes</p>
+          <p className="text-[9px] text-slate-400 mt-0.5">Phase 7 &middot; Password-Protected CSV Export</p>
         </div>
       </aside>
 
