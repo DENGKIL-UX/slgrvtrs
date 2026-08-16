@@ -22,15 +22,12 @@
       "database_name": "slgrvtrs-voters",
       "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb"
     }
-  ]
+  ],
 
-  // R2 bucket binding — uncomment when R2 is provisioned (Phase 5 PMTiles)
-  // Create with: npx wrangler r2 bucket create slgrvtrs-tiles
-  //
-  // "r2_buckets": [
-  //   {
-  //     "binding": "TILES",
-  //     "bucket_name": "slgrvtrs-tiles"
-  //   }
-  // ]
+  "r2_buckets": [
+    {
+      "binding": "TILES",
+      "bucket_name": "slgrvtrs-tiles"
+    }
+  ]
 }

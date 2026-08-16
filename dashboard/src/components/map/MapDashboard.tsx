@@ -165,19 +165,8 @@ const DM_MIN_VOTERS = 0;
 const DM_MAX_VOTERS = 27000;
 
 // ============================================================
-// Mini bar chart helper for popups
+// Visual helpers for popups
 // ============================================================
-
-function miniBar(value: number, max: number, color: string, label: string, showValue: boolean = true): string {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
-  return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;">
-    <span style="width:58px;font-size:11px;color:#64748b;text-align:right;flex-shrink:0;">${label}</span>
-    <div style="flex:1;height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden;">
-      <div style="width:${pct}%;height:100%;background:${color};border-radius:4px;transition:width 0.3s;"></div>
-    </div>
-    <span style="width:42px;font-size:11px;color:#334155;font-weight:500;text-align:right;flex-shrink:0;">${showValue ? value.toLocaleString() : value + '%'}</span>
-  </div>`;
-}
 
 function raceBar(malay: number, chinese: number, indian: number, other: number): string {
   const total = malay + chinese + indian + other;
@@ -185,11 +174,12 @@ function raceBar(malay: number, chinese: number, indian: number, other: number):
   const mPct = (malay / total * 100).toFixed(1);
   const cPct = (chinese / total * 100).toFixed(1);
   const iPct = (indian / total * 100).toFixed(1);
+  const oPct = Math.max(0, 100 - parseFloat(mPct) - parseFloat(cPct) - parseFloat(iPct)).toFixed(1);
   return `<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin:6px 0 2px;gap:1px;">
     <div style="width:${mPct}%;background:#ef4444;border-radius:5px 0 0 5px;" title="Malay ${mPct}%"></div>
     <div style="width:${cPct}%;background:#f59e0b;" title="Chinese ${cPct}%"></div>
     <div style="width:${iPct}%;background:#3b82f6;" title="Indian ${iPct}%"></div>
-    <div style="width:${(100 - parseFloat(mPct) - parseFloat(cPct) - parseFloat(iPct)).toFixed(1)}%;background:#8b5cf6;border-radius:0 5px 5px 0;" title="Others"></div>
+    <div style="width:${oPct}%;background:#8b5cf6;border-radius:0 5px 5px 0;" title="Others"></div>
   </div>
   <div style="display:flex;gap:8px;font-size:9px;color:#94a3b8;margin-bottom:4px;">
     <span style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;background:#ef4444;border-radius:50%;display:inline-block;"></span>Melayu ${malay.toFixed(1)}%</span>
@@ -199,18 +189,42 @@ function raceBar(malay: number, chinese: number, indian: number, other: number):
   </div>`;
 }
 
+/** Real SVG donut chart for gender distribution */
 function genderDonut(male: number, female: number): string {
   const total = male + female;
   if (total === 0) return '';
   const mPct = (male / total * 100).toFixed(1);
   const fPct = (female / total * 100).toFixed(1);
-  return `<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin:4px 0 2px;gap:1px;">
-    <div style="width:${mPct}%;background:#3b82f6;border-radius:5px 0 0 5px;"></div>
-    <div style="width:${fPct}%;background:#ec4899;border-radius:0 5px 5px 0;"></div>
-  </div>
-  <div style="display:flex;gap:8px;font-size:9px;color:#94a3b8;margin-bottom:4px;">
-    <span style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;background:#3b82f6;border-radius:50%;display:inline-block;"></span>Lelaki ${male.toLocaleString()} (${mPct}%)</span>
-    <span style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;background:#ec4899;border-radius:50%;display:inline-block;"></span>Perempuan ${female.toLocaleString()} (${fPct}%)</span>
+  // SVG donut using stroke-dasharray on circles
+  // circumference = 2 * PI * r = 2 * 3.14159 * 18 = 113.097
+  const C = 2 * Math.PI * 18;
+  const maleLen = (male / total) * C;
+  const femaleLen = (female / total) * C;
+  return `<div style="display:flex;align-items:center;gap:12px;margin:8px 0 6px;">
+    <svg width="64" height="64" viewBox="0 0 64 64" style="flex-shrink:0;">
+      <circle cx="32" cy="32" r="18" fill="none" stroke="#3b82f6" stroke-width="8"
+        stroke-dasharray="${maleLen} ${C - maleLen}"
+        stroke-dashoffset="${C / 4}" transform="rotate(-90 32 32)" />
+      <circle cx="32" cy="32" r="18" fill="none" stroke="#ec4899" stroke-width="8"
+        stroke-dasharray="${femaleLen} ${C - femaleLen}"
+        stroke-dashoffset="${C / 4 - maleLen}" transform="rotate(-90 32 32)" />
+      <text x="32" y="30" text-anchor="middle" font-size="9" font-weight="700" fill="#0f172a">${total.toLocaleString()}</text>
+      <text x="32" y="39" text-anchor="middle" font-size="7" fill="#94a3b8">voters</text>
+    </svg>
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="width:8px;height:8px;background:#3b82f6;border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:11px;color:#334155;font-weight:500;">Lelaki</span>
+        <span style="font-size:11px;color:#3b82f6;font-weight:700;margin-left:auto;">${mPct}%</span>
+      </div>
+      <div style="font-size:10px;color:#64748b;padding-left:14px;">${male.toLocaleString()} voters</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="width:8px;height:8px;background:#ec4899;border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:11px;color:#334155;font-weight:500;">Perempuan</span>
+        <span style="font-size:11px;color:#ec4899;font-weight:700;margin-left:auto;">${fPct}%</span>
+      </div>
+      <div style="font-size:10px;color:#64748b;padding-left:14px;">${female.toLocaleString()} voters</div>
+    </div>
   </div>`;
 }
 
@@ -226,6 +240,9 @@ export default function MapDashboard() {
   const dmCentroidsRef = useRef<GeoJSON.FeatureCollection | null>(null);
   const statsRef = useRef<StatsMap>({});
   const dunStatsRef = useRef<DUNStatsMap>({});
+  // Store independent GeoJSON references for search flyTo (source._data is unreliable)
+  const parlGeojsonRef = useRef<GeoJSON.FeatureCollection | null>(null);
+  const dunGeojsonRef = useRef<GeoJSON.FeatureCollection | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -287,21 +304,30 @@ export default function MapDashboard() {
     setSearchResults(results.slice(0, 8));
   }, []);
 
-  // Fly to searched constituency
+  // Fly to searched constituency — uses stored GeoJSON refs, not source._data
   const flyToConstituency = useCallback((code: string, type: 'parliament' | 'dun') => {
     const map = mapRef.current;
     if (!map) return;
 
+    const findBounds = (geojson: GeoJSON.FeatureCollection | null, field: string, value: string): LngLatBounds | null => {
+      if (!geojson) return null;
+      const feat = geojson.features.find(f => (f.properties as any)?.[field] === value);
+      if (!feat?.geometry) return null;
+      const geom = feat.geometry;
+      const coords = geom.type === 'Polygon'
+        ? geom.coordinates
+        : geom.type === 'MultiPolygon'
+          ? geom.coordinates.flat(2)
+          : [];
+      if (!coords.length) return null;
+      const bounds = new LngLatBounds();
+      for (const coord of coords) bounds.extend(coord as [number, number]);
+      return bounds;
+    };
+
     if (type === 'parliament') {
-      const source = map.getSource('parliament') as any;
-      if (!source) return;
-      const data = source._data as GeoJSON.FeatureCollection;
-      const feat = data?.features.find(f => f.properties?.code_parlimen === code);
-      if (feat?.geometry && feat.geometry.type === 'Polygon') {
-        const bounds = new LngLatBounds();
-        for (const ring of feat.geometry.coordinates) {
-          for (const coord of ring) bounds.extend(coord as [number, number]);
-        }
+      const bounds = findBounds(parlGeojsonRef.current, 'code_parlimen', code);
+      if (bounds) {
         map.flyTo({ center: bounds.getCenter(), zoom: 10, duration: 1000, padding: { top: 60, bottom: 60, left: 340, right: 60 } });
       }
       // Trigger drill-down
@@ -311,16 +337,8 @@ export default function MapDashboard() {
       });
       setDrilledParl(code);
     } else {
-      // DUN - zoom to it
-      const source = map.getSource('dun') as any;
-      if (!source) return;
-      const data = source._data as GeoJSON.FeatureCollection;
-      const feat = data?.features.find(f => f.properties?.code_dun === code);
-      if (feat?.geometry && feat.geometry.type === 'Polygon') {
-        const bounds = new LngLatBounds();
-        for (const ring of feat.geometry.coordinates) {
-          for (const coord of ring) bounds.extend(coord as [number, number]);
-        }
+      const bounds = findBounds(dunGeojsonRef.current, 'code_dun', code);
+      if (bounds) {
         map.flyTo({ center: bounds.getCenter(), zoom: 12, duration: 1000, padding: { top: 60, bottom: 60, left: 340, right: 60 } });
       }
     }
@@ -329,18 +347,30 @@ export default function MapDashboard() {
     setSearchResults([]);
   }, []);
 
-  // Add to comparison
+  // Add to comparison — exposed via global event for popup HTML buttons
   const addToComparison = useCallback((code: string, name: string, type: 'parliament' | 'dun', data: Record<string, number | string>) => {
     setComparisonList(prev => {
       if (prev.length >= 3) return prev;
       if (prev.some(s => s.code === code)) return prev;
       return [...prev, { code, name, type, data }];
     });
+    setShowComparison(true);
+    setActiveTab('compare');
   }, []);
 
   const removeFromComparison = useCallback((code: string) => {
     setComparisonList(prev => prev.filter(s => s.code !== code));
   }, []);
+
+  // Global event listener for popup compare buttons (React closure can't be accessed from setHTML)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { code, name, type, data } = (e as CustomEvent).detail;
+      addToComparison(code, name, type, data);
+    };
+    window.addEventListener('slgrvtrs:compare', handler);
+    return () => window.removeEventListener('slgrvtrs:compare', handler);
+  }, [addToComparison]);
 
   // Export CSV
   const exportCSV = useCallback(() => {
@@ -463,6 +493,9 @@ export default function MapDashboard() {
 
         const joined = joinStatsToGeoJSON(parlGeojson, stats);
         const dunJoined = joinStatsToGeoJSON(dunGeojson, dunStats as unknown as StatsMap);
+        // Store GeoJSON refs for search flyTo (source._data is unreliable in MapLibre)
+        parlGeojsonRef.current = joined;
+        dunGeojsonRef.current = dunJoined;
 
         if (cancelled) return;
 
@@ -580,7 +613,7 @@ export default function MapDashboard() {
               for (const ring of feat.geometry.coordinates) { for (const coord of ring) bounds.extend(coord as [number, number]); }
               map.flyTo({ center: bounds.getCenter(), zoom: 10.5, duration: 800, padding: { top: 40, bottom: 40, left: 40, right: 40 } });
             }
-            popup.setLngLat(e.lngLat).setHTML(buildParliamentPopupHTML(props, true, () => addToComparison(codeParlimen, props.name, 'parliament', props as any))).addTo(map);
+            popup.setLngLat(e.lngLat).setHTML(buildParliamentPopupHTML(props, true, codeParlimen)).addTo(map);
             setDrilledParl(codeParlimen);
           });
 
@@ -606,7 +639,7 @@ export default function MapDashboard() {
             const props = e.features[0].properties as unknown as DUNProperties;
             const codeDun = props.code_dun;
             const dunName = props.dun.replace(/^N\.\d+\s+/, '');
-            popup.setLngLat(e.lngLat).setHTML(buildDUNPopupHTML(props, () => addToComparison(codeDun, dunName, 'dun', props as any))).addTo(map);
+            popup.setLngLat(e.lngLat).setHTML(buildDUNPopupHTML(props, codeDun)).addTo(map);
           });
 
           // ---- DUN hover ----
@@ -808,17 +841,27 @@ export default function MapDashboard() {
                 <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Map Layers</label>
                 <div className="space-y-1">
                   {[
-                    { key: 'parliament' as const, label: 'Parliament', count: '22', color: 'emerald' },
-                    { key: 'dun' as const, label: 'DUN', count: '56', color: 'teal' },
-                    { key: 'dm' as const, label: 'DM Bubbles', count: '945', color: 'rose' },
-                  ].map(({ key, label, count, color }) => (
-                    <label key={key} className="flex items-center gap-2.5 cursor-pointer group py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors">
-                      <div className={`w-8 h-4 rounded-full transition-colors relative ${layers[key] ? `bg-${color}-500` : 'bg-slate-200'}`}>
-                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${layers[key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    { key: 'parliament' as const, label: 'Parliament', count: '22', activeColor: '#10b981' },
+                    { key: 'dun' as const, label: 'DUN', count: '56', activeColor: '#14b8a6' },
+                    { key: 'dm' as const, label: 'DM Bubbles', count: '945', activeColor: '#f43f5e' },
+                  ].map(({ key, label, count, activeColor }) => (
+                    <button
+                      key={key}
+                      onClick={() => toggleLayer(key)}
+                      className="flex items-center gap-2.5 cursor-pointer group py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors w-full text-left"
+                    >
+                      <div
+                        className="w-8 h-4 rounded-full transition-colors relative flex-shrink-0"
+                        style={{ backgroundColor: layers[key] ? activeColor : '#e2e8f0' }}
+                      >
+                        <div
+                          className="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform"
+                          style={{ transform: layers[key] ? 'translateX(16px)' : 'translateX(2px)' }}
+                        />
                       </div>
                       <span className="text-xs text-slate-700 group-hover:text-slate-900 flex-1">{label}</span>
                       <span className="text-[10px] text-slate-400 font-mono">{count}</span>
-                    </label>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -933,38 +976,55 @@ export default function MapDashboard() {
 
           {activeTab === 'compare' && (
             <div className="p-3 space-y-3">
-              <div>
-                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Seat Comparison (max 3)</label>
-                <p className="text-[10px] text-slate-400 mb-2">Click any constituency popup's &quot;+ Compare&quot; button to add it here.</p>
-                {comparisonList.length === 0 ? (
-                  <div className="text-center py-6 text-slate-400">
-                    <svg className="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                    <p className="text-xs">No seats selected yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {comparisonList.map((seat) => (
-                      <div key={seat.code} className="bg-white border border-slate-200 rounded-lg p-2.5 relative group">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Seat Comparison (max 3)</label>
+                {comparisonList.length > 0 && (
+                  <button onClick={() => setComparisonList([])} className="text-[10px] text-rose-500 hover:text-rose-700 font-medium hover:underline">Clear All</button>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400">Click any constituency popup's &quot;+ Compare&quot; button to add it here.</p>
+              {comparisonList.length === 0 ? (
+                <div className="text-center py-6 text-slate-400">
+                  <svg className="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  <p className="text-xs">No seats selected yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                    {comparisonList.map((seat) => {
+                      const voters = (seat.data.total_voters as number) || 0;
+                      const malay = Number(seat.data.malay_pct) || 0;
+                      const chinese = Number(seat.data.chinese_pct) || 0;
+                      const indian = Number(seat.data.indian_pct) || 0;
+                      return (
+                      <div key={seat.code} className="bg-white border border-slate-200 rounded-lg p-2.5 relative group hover:shadow-md transition-shadow">
                         <button onClick={() => removeFromComparison(seat.code)} className="absolute top-1.5 right-1.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1.5">
                           <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${seat.type === 'parliament' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-700'}`}>{seat.type === 'parliament' ? 'PARL' : 'DUN'}</span>
                           <span className="text-xs font-semibold text-slate-800">{seat.code}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500">{seat.name}</div>
-                        <div className="mt-1.5 space-y-0.5 text-[10px]">
-                          <div className="flex justify-between"><span className="text-slate-400">Voters</span><span className="font-medium text-slate-700">{(seat.data.total_voters as number)?.toLocaleString()}</span></div>
-                          <div className="flex justify-between"><span className="text-slate-400">Malay %</span><span className="font-medium text-slate-700">{seat.data.malay_pct}%</span></div>
-                          <div className="flex justify-between"><span className="text-slate-400">Chinese %</span><span className="font-medium text-slate-700">{seat.data.chinese_pct}%</span></div>
-                          <div className="flex justify-between"><span className="text-slate-400">Indian %</span><span className="font-medium text-slate-700">{seat.data.indian_pct}%</span></div>
-                          <div className="flex justify-between"><span className="text-slate-400">Mean Age</span><span className="font-medium text-slate-700">{seat.data.age_mean}</span></div>
+                        <div className="text-[11px] text-slate-500 mb-1.5">{seat.name}</div>
+                        <div className="text-lg font-extrabold text-slate-800">{voters.toLocaleString()}</div>
+                        <div className="text-[9px] text-slate-400 -mt-0.5 mb-2">total voters</div>
+                        {/* Mini race bar */}
+                        <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+                          <div className="rounded-l-full" style={{width: malay + '%', background: '#ef4444'}} />
+                          <div style={{width: chinese + '%', background: '#f59e0b'}} />
+                          <div style={{width: indian + '%', background: '#3b82f6'}} />
+                          <div className="rounded-r-full" style={{width: Math.max(0, 100 - malay - chinese - indian) + '%', background: '#8b5cf6'}} />
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                          <div className="flex justify-between"><span className="text-slate-400">Malay</span><span className="font-medium text-slate-700">{malay}%</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Chinese</span><span className="font-medium text-slate-700">{chinese}%</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Indian</span><span className="font-medium text-slate-700">{indian}%</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Age</span><span className="font-medium text-slate-700">{seat.data.age_mean}</span></div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
-              </div>
             </div>
           )}
         </div>
@@ -983,7 +1043,7 @@ export default function MapDashboard() {
         {/* Footer */}
         <div className="px-3 py-2 border-t border-slate-200/80 flex-shrink-0 bg-slate-50/50">
           <p className="text-[9px] text-slate-400 leading-relaxed">Boundaries: MECo (CC0) &middot; Not official SPR boundaries.</p>
-          <p className="text-[9px] text-slate-400 mt-0.5">Phase 5 &middot; Search, Compare, Export, Enhanced Popups</p>
+          <p className="text-[9px] text-slate-400 mt-0.5">Phase 6 &middot; Donut Charts, R2, Bug Fixes</p>
         </div>
       </aside>
 
@@ -1069,7 +1129,8 @@ export default function MapDashboard() {
 // Popup HTML builders — Enhanced with visual bars and bilingual labels
 // ============================================================
 
-function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean, onCompare?: () => void): string {
+function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean, code: string): string {
+  const compareData = JSON.stringify({ code, name: p.name, type: 'parliament', data: { total_voters: p.total_voters, male: p.male, female: p.female, male_pct: p.male_pct, female_pct: p.female_pct, malay_pct: p.malay_pct, chinese_pct: p.chinese_pct, indian_pct: p.indian_pct, other_pct: p.other_pct, age_mean: p.age_mean, age_median: p.age_median, contact_pct: p.contact_pct } });
   return `
     <div style="font-family:system-ui,-apple-system,sans-serif;min-width:280px;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
@@ -1080,7 +1141,7 @@ function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean, onCompare?
             Kawasan Persekutuan
           </div>
         </div>
-        ${onCompare ? `<button onclick="(${onCompare.toString()})()" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">+ Compare</button>` : ''}
+        <button onclick="window.dispatchEvent(new CustomEvent('slgrvtrs:compare',{detail:${compareData}}))" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">+ Compare</button>
       </div>
       <div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
         <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Jumlah Pengundi / Total Voters</div>
@@ -1110,7 +1171,7 @@ function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean, onCompare?
     </div>`;
 }
 
-function buildDUNPopupHTML(p: DUNProperties, onCompare?: () => void): string {
+function buildDUNPopupHTML(p: DUNProperties, codeDun: string): string {
   const hasStats = p.total_voters !== undefined && p.total_voters !== null;
   const dunName = p.dun.replace(/^N\.\d+\s+/, '');
   const parlName = p.parlimen.replace(/^P\.\d+\s+/, '');
@@ -1127,6 +1188,8 @@ function buildDUNPopupHTML(p: DUNProperties, onCompare?: () => void): string {
     </div>`;
   }
 
+  const compareData = JSON.stringify({ code: codeDun, name: dunName, type: 'dun', data: { total_voters: p.total_voters, male: p.male, female: p.female, male_pct: p.male_pct, female_pct: p.female_pct, malay_pct: p.malay_pct, chinese_pct: p.chinese_pct, indian_pct: p.indian_pct, other_pct: p.other_pct, age_mean: p.age_mean, age_median: p.age_median, contact_pct: p.contact_pct, dm_count: p.dm_count } });
+
   return `<div style="font-family:system-ui,-apple-system,sans-serif;min-width:280px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
       <div>
@@ -1136,7 +1199,7 @@ function buildDUNPopupHTML(p: DUNProperties, onCompare?: () => void): string {
           Dewan Undangan Negeri
         </div>
       </div>
-      ${onCompare ? `<button onclick="(${onCompare.toString()})()" style="background:#f0fdfa;border:1px solid #99f6e4;color:#0d9488;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'">+ Compare</button>` : ''}
+      <button onclick="window.dispatchEvent(new CustomEvent('slgrvtrs:compare',{detail:${compareData}}))" style="background:#f0fdfa;border:1px solid #99f6e4;color:#0d9488;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'">+ Compare</button>
     </div>
     <div style="margin-top:6px;padding:4px 8px;background:#f0fdfa;border-radius:6px;font-size:10px;color:#0f766e;border:1px solid #ccfbf1;">
       Parent: <strong>${p.parent_parl}</strong> ${parlName}
