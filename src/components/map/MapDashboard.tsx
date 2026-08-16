@@ -292,6 +292,8 @@ export default function MapDashboard() {
   const [showDataTable, setShowDataTable] = useState(false);
   // Visualization mode: 'choropleth' (normal) or 'heatmap' (red-orange gradient)
   const [vizMode, setVizMode] = useState<'choropleth' | 'heatmap'>('choropleth');
+  // Fullscreen map mode (hides sidebar)
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Summary stats — populated once the voter stats JSON has loaded (see bootstrap effect).
   // Kept as state (not a ref read during render) to satisfy react-hooks/refs.
@@ -999,6 +1001,11 @@ export default function MapDashboard() {
           e.preventDefault();
           setShowDataTable((o) => !o);
           break;
+        case 'f': case 'F':
+          e.preventDefault();
+          setFullscreen((f) => !f);
+          toast(fullscreen ? 'Exited fullscreen' : 'Fullscreen map', 'info', 1500);
+          break;
         case 't': case 'T':
           e.preventDefault();
           setTheme((t) => {
@@ -1039,7 +1046,7 @@ export default function MapDashboard() {
 
       {/* ======= Sidebar ======= */}
       <aside
-        className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-slate-900/95 border-slate-700' : 'bg-white/95 border-slate-200/80'} backdrop-blur-md border-r flex-shrink-0 overflow-hidden flex flex-col ${isMobile ? 'fixed top-0 left-0 h-full z-30 shadow-2xl' : 'relative'}`}
+        className={`${(sidebarOpen && !fullscreen) ? 'w-80' : 'w-0'} transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-slate-900/95 border-slate-700' : 'bg-white/95 border-slate-200/80'} backdrop-blur-md border-r flex-shrink-0 overflow-hidden flex flex-col ${isMobile ? 'fixed top-0 left-0 h-full z-30 shadow-2xl' : 'relative'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with gradient accent */}
@@ -1133,7 +1140,15 @@ export default function MapDashboard() {
           {activeTab === 'layers' && (
             <div className="p-3 space-y-3">
               {/* Current selection detail card (shows when a seat is selected) */}
-              {currentSelection && (
+              {currentSelection && (() => {
+                // Look up stats for the selected seat
+                let seatStats: ParliamentStats | DUNStats | null = null;
+                if (currentSelection.type === 'parliament') {
+                  seatStats = Object.values(parlStatsState).find(p => p.code_parlimen === currentSelection.code) ?? null;
+                } else if (currentSelection.type === 'dun') {
+                  seatStats = Object.values(dunStatsState).find(d => d.code_dun === currentSelection.code) ?? null;
+                }
+                return (
                 <div className={`rounded-xl p-3 border animate-[slideUp_0.3s_ease-out] ${theme === 'dark' ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border-emerald-200'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
@@ -1149,6 +1164,23 @@ export default function MapDashboard() {
                     >✕</button>
                   </div>
                   <div className={`text-[11px] font-medium mb-2 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>{currentSelection.label}</div>
+                  {/* Mini stats grid */}
+                  {seatStats && (
+                    <div className="grid grid-cols-3 gap-1.5 mb-2">
+                      <div className={`rounded-md p-1.5 text-center ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-white/60'}`}>
+                        <div className={`text-[8px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-400'}`}>Voters</div>
+                        <div className={`text-[11px] font-bold tabular-nums ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>{(seatStats.total_voters / 1000).toFixed(0)}K</div>
+                      </div>
+                      <div className={`rounded-md p-1.5 text-center ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-white/60'}`}>
+                        <div className={`text-[8px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-400'}`}>Malay</div>
+                        <div className={`text-[11px] font-bold tabular-nums ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>{seatStats.malay_pct.toFixed(0)}%</div>
+                      </div>
+                      <div className={`rounded-md p-1.5 text-center ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-white/60'}`}>
+                        <div className={`text-[8px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-400'}`}>Age</div>
+                        <div className={`text-[11px] font-bold tabular-nums ${theme === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>{seatStats.age_mean.toFixed(1)}</div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-1.5">
                     <button
                       onClick={(e) => { e.stopPropagation(); setShowInsights(true); setShowAnalytics(false); setShowRanking(false); }}
@@ -1160,7 +1192,8 @@ export default function MapDashboard() {
                     >Bookmark</button>
                   </div>
                 </div>
-              )}
+                );
+              })()}
               {/* Layer toggles */}
               <div>
                 <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Map Layers</label>
@@ -1217,7 +1250,12 @@ export default function MapDashboard() {
                 <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Choropleth Metric</label>
                 <select
                   value={activeMetric}
-                  onChange={(e) => setActiveMetric(e.target.value)}
+                  onChange={(e) => {
+                    const newMetric = e.target.value;
+                    setActiveMetric(newMetric);
+                    const scale = COLOR_SCALES.find(s => s.id === newMetric);
+                    toast(`Metric: ${scale?.label ?? newMetric}`, 'info', 1500);
+                  }}
                   className={`w-full h-8 rounded-lg border px-3 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`}
                 >
                   {COLOR_SCALES.filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i).map((s) => (
@@ -1457,18 +1495,43 @@ export default function MapDashboard() {
           </svg>
         </button>
 
+        {/* Fullscreen toggle (press F) */}
+        <button
+          onClick={(e) => { e.stopPropagation(); setFullscreen((f) => !f); toast(fullscreen ? 'Exited fullscreen' : 'Fullscreen map', 'info', 1500); }}
+          className="absolute top-3 left-16 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hover:shadow-xl hover:bg-white transition-all border border-slate-200/80 p-2 group"
+          aria-label="Toggle fullscreen map"
+          title="Toggle fullscreen (press F)"
+        >
+          <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {fullscreen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9H3m6 0v5.5M9 15H4.5M9 15H3m12-6V4.5M15 9h5.5M15 9H21m-6 0v5.5M15 15h5.5M15 15H21" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            )}
+          </svg>
+        </button>
+
         {/* Map container */}
         <div ref={containerRef} className="w-full h-full touch-action-none" />
 
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-100/95 z-20">
-            <div className="flex flex-col items-center gap-3">
-              <div className="relative w-10 h-10">
-                <div className="absolute inset-0 border-3 border-emerald-200 rounded-full" />
-                <div className="absolute inset-0 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative w-12 h-12">
+                <div className="absolute inset-0 border-4 border-emerald-200 rounded-full" />
+                <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <div className="absolute inset-2 bg-emerald-500/20 rounded-full animate-pulse" />
               </div>
-              <span className="text-sm text-slate-600 font-medium">Loading Selangor Voter Map...</span>
-              <span className="text-xs text-slate-400">Loading boundaries & statistics</span>
+              <div className="text-center">
+                <span className="text-sm text-slate-700 font-semibold block">Loading Selangor Voter Map</span>
+                <span className="text-xs text-slate-400 mt-1 block">Loading boundaries & statistics…</span>
+              </div>
+              {/* Shimmer skeleton bars */}
+              <div className="flex flex-col gap-1.5 w-48">
+                <div className="h-2 rounded-full shimmer" />
+                <div className="h-2 rounded-full shimmer w-3/4" />
+                <div className="h-2 rounded-full shimmer w-1/2" />
+              </div>
             </div>
           </div>
         )}
