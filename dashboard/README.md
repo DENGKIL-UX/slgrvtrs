@@ -14,7 +14,7 @@ npm run build:cf   # Build for Cloudflare Workers
 npm run deploy     # Deploy to Cloudflare
 ```
 
-## Features (Phase 1–8)
+## Features (Phase 1–9)
 
 ### Map Visualization
 - **Parliament choropleth** (22 seats) with 10 switchable metrics
@@ -37,7 +37,7 @@ npm run deploy     # Deploy to Cloudflare
 - **Analytics drawer** — statewide ethnic/gender donuts, top/bottom-5 bar charts, age distribution
 - **AI Insights** — LLM-powered bullet insights via Cloudflare AI Workers (Llama 3.3 70B)
 - **Ranking table** — sortable/filterable table of all 22 parliaments or 56 DUNs
-- **Data table explorer** — full-screen sortable table with CSV export
+- **Data table explorer** — full-screen sortable table with CSV export + row click to fly-to
 - **Constituency detail card** — mini-stats (voters, Malay %, age) + quick actions
 - **Quick statistics** — statewide aggregate summary in sidebar
 

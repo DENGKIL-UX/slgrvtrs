@@ -1,8 +1,8 @@
 # SLGRVTRS — Feature Guide
 
 > **Live**: https://slgrvtrs.ritz-analytics.workers.dev  
-> **Updated**: 2026-08-16  
-> **Phase**: 8 (all features deployed)
+> **Updated**: 2026-08-17  
+> **Phase**: 9 (all features deployed)
 
 ---
 
@@ -94,6 +94,8 @@ Full dark mode support across:
 - 10 columns: Code, Name, Voters, Male %, Female %, Malay %, Chinese %, Indian %, Mean Age, Contact %
 - Export CSV (client-side, no password needed)
 - Parliament/DUN level toggle
+- **Click any row** → fly to that constituency on the map + auto-open popup with voter stats
+- Hover shows a location-pin icon (indigo)
 
 ### Constituency Detail Card
 - Appears at top of Layers tab when a seat is selected
@@ -155,6 +157,7 @@ Press `?` to open the shortcuts overlay:
 - **Error** (red ✕) — "Failed to copy link"
 - **Info** (blue ℹ) — "Metric: Malay %", "Switched to heatmap", "Fullscreen map"
 - **Warning** (amber ⚠) — "Comparison is full (max 3 seats)"
+- **Info** (blue ℹ) — "Parliament layer on/off", "DUN layer on/off", "DM Bubbles layer on/off"
 
 ### Loading State
 - Enhanced spinner (w-12 h-12) with pulsing inner circle

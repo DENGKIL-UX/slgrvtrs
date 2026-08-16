@@ -360,6 +360,7 @@ CF-00 (fix next.config.ts) ✅
                           └── CF-50..51 (CI/CD — optional)
                                 └── CF-60..63 (Bugfixes — COMPLETE ✅)
                                       └── CF-70..76 (Phase 6-8 bugfixes — COMPLETE ✅)
+                                      └── CF-77..78 (Phase 9 UX refinements — COMPLETE ✅)
 ```
 
 ## Progress Summary
@@ -378,3 +379,4 @@ CF-00 (fix next.config.ts) ✅
 | 7: Password | CF-PW | **DONE** | PBKDF2 + D1 `app_settings`, `/api/export/csv` |
 | 8: UI | CF-UI | **DONE** | Dark mode, satellite, heatmap, analytics, ranking, bookmarks, share, tour, data table, toasts, fullscreen, shortcuts, comparison charts, detail card |
 | 6-8 Bugfix | CF-70..76 | **DONE** | Search popup, theme sync, AI on CF, build fix, prod sync, DUNStats, recharts |
+| 9: UX | CF-77..78 | **DONE** | Data table fly-to, layer toggle toast |

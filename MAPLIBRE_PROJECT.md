@@ -34,6 +34,7 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 | Phase 6 | AI Insights via CF AI Workers (Llama 3.3 70B, `env.AI` binding) | **DEPLOYED** | ✅ AI binding active |
 | Phase 7 | Password-protected CSV export (PBKDF2 + D1 `app_settings`) | **DEPLOYED** | ✅ Password API works |
 | Phase 8 | UI features: dark mode, satellite basemap, heatmap, analytics, ranking, bookmarks, share, tour, data table, toasts, fullscreen | **DEPLOYED** | ✅ All features live |
+| Phase 9 | UX refinements: data table fly-to, layer/metric/share/bookmark toasts, comparison CSV export | **DEPLOYED** | ✅ All features live |
 
 ---
 
@@ -659,6 +660,16 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] **Fullscreen toggle** — hide sidebar for maximum map area
 - [x] **Constituency detail card** — mini-stats (voters, Malay %, age) + quick actions
 - [x] **Shimmer loading skeleton** — enhanced loading state with animation
+
+### Phase 9: UX Refinements — COMPLETE ✅
+- [x] **Data table row click → fly-to** — click any row in Data Table Explorer to fly to constituency + auto-popup
+- [x] **Layer toggle toast** — "Parliament/DUN/DM layer on/off" notifications
+- [x] **Metric switch toast** — "Metric: X" on dropdown change
+- [x] **Share toast** — "Shareable link copied to clipboard" on copy
+- [x] **Bookmark toasts** — "Bookmarked X" / "Removed bookmark X" / "X already bookmarked"
+- [x] **Comparison toasts** — "Added X to comparison" / "Comparison full" / "Already in comparison"
+- [x] **Comparison CSV export** — client-side blob download of comparison seats
+- [x] **Fullscreen toast** — "Fullscreen map" / "Exited fullscreen"
 
 ---
 

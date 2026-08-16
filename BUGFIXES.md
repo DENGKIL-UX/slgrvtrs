@@ -210,6 +210,30 @@ The recharts v2 `XAxis` component's `tick` prop doesn't accept `angle` or `textA
 
 ---
 
+---
+
+## Phase 9 Bug Fixes
+
+### CF-77: Data table rows not clickable
+**Severity**: P2 (UX gap)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+Data Table Explorer rows were display-only — clicking a row did nothing. Users had to close the modal, search for the constituency, then click it.
+
+**Fix**: Added `onFlyTo` prop to DataTableView. Each row is now `cursor-pointer` with a hover location-pin icon. Clicking a row calls `flyToConstituency()` and auto-closes the modal. The fly-to opens the popup with full voter stats via the `moveend` handler.
+
+### CF-78: No feedback on layer toggle
+**Severity**: P3 (UX polish)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+Toggling Parliament/DUN/DM layers had no visual feedback — users couldn't tell if the toggle worked.
+
+**Fix**: Added toast notification to the `toggleLayer` callback: "Parliament layer on/off", "DUN layer on/off", "DM Bubbles layer on/off" (info type, 1.5s).
+
+---
+
 ## Updated Summary
 
 | Bug | Severity | Fix Type | Status |
@@ -225,3 +249,5 @@ The recharts v2 `XAxis` component's `tick` prop doesn't accept `angle` or `textA
 | CF-74: Production sync | P0 | dashboard/ sync | Fixed |
 | CF-75: DUNStats interface | P1 | Added code_parlimen | Fixed |
 | CF-76: Recharts XAxis | P1 | Props moved to XAxis | Fixed |
+| CF-77: Data table fly-to | P2 | onFlyTo prop + row click | Fixed |
+| CF-78: Layer toggle toast | P3 | Toast in toggleLayer | Fixed |

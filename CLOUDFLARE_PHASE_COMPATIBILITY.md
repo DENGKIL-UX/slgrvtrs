@@ -230,7 +230,7 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 
 ## Conclusion
 
-**All 8 phases are fully compatible with Cloudflare deployment on the free tier.**
+**All 9 phases are fully compatible with Cloudflare deployment on the free tier.**
 
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
 - Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters
@@ -259,5 +259,10 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 **CF Compatibility**: All client-side — no CF infrastructure changes needed  
 **Components**: AnalyticsDrawer, AiInsightsPanel, RankingTable, BookmarksMenu, ComparisonRadar, ComparisonBarChart, ShareButton, ThemeToggle, KeyboardShortcuts, OnboardingTour, DataTableView, Toast  
 **Features**: Dark mode (sidebar + popups + drawers), ESRI satellite basemap, heatmap visualization, fullscreen toggle, constituency detail card with mini-stats, toast notifications on all key actions
+
+### Phase 9: UX Refinements
+**Status**: DEPLOYED  
+**CF Compatibility**: All client-side  
+**Features**: Data table row click → fly-to constituency + auto-popup, layer toggle toast notifications, metric switch toast, shimmer loading skeleton
 
 The `pip-melaka` repo proves the pattern works — same org, same developer, same stack (Next.js 16 + OpenNext + Wrangler + D1), already deployed to Cloudflare.
