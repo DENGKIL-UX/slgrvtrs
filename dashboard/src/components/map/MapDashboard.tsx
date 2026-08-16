@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Map, Popup, NavigationControl, AttributionControl, LngLatBounds, type FilterSpecification } from '@/lib/map/setup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { initMapLibre } from '@/lib/map/setup';
@@ -9,6 +9,10 @@ import { buildColorExpression, getScaleById, getDunScaleById, COLOR_SCALES, DUN_
 import Legend from '@/components/map/Legend';
 import SettingsGear from '@/components/SettingsGear';
 import ExportPanel from '@/components/ExportPanel';
+import AnalyticsDrawer from '@/components/AnalyticsDrawer';
+import AiInsightsPanel from '@/components/AiInsightsPanel';
+import RankingTable from '@/components/RankingTable';
+import BookmarksMenu from '@/components/BookmarksMenu';
 
 // ============================================================
 // Provenance data (embedded)
@@ -45,6 +49,7 @@ interface PopupData extends ParliamentStats {
 interface DUNStats {
   code_dun: string;
   name: string;
+  code_parlimen: string;
   total_voters: number;
   male: number;
   female: number;
@@ -264,6 +269,31 @@ export default function MapDashboard() {
   const [showStats, setShowStats] = useState(false);
   const [activeTab, setActiveTab] = useState<'layers' | 'filters' | 'compare'>('layers');
 
+  // New feature drawers
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
+  const [showRanking, setShowRanking] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  // Tracks the currently selected seat for the AI insights panel.
+  const [currentSelection, setCurrentSelection] = useState<{ type: 'state' | 'parliament' | 'dun' | 'dm'; code: string | null; label: string } | null>(null);
+
+  // Summary stats — populated once the voter stats JSON has loaded (see bootstrap effect).
+  // Kept as state (not a ref read during render) to satisfy react-hooks/refs.
+  const [summaryStats, setSummaryStats] = useState<{
+    totalVoters: number;
+    avgMalay: number;
+    avgChinese: number;
+    avgIndian: number;
+    avgAge: number;
+    avgContact: number;
+    largest: ParliamentStats;
+    smallest: ParliamentStats;
+  } | null>(null);
+  // Mirror of the stats refs as state, so drawer components can read them as props
+  // (reading refs during render is forbidden by react-hooks/refs).
+  const [parlStatsState, setParlStatsState] = useState<StatsMap>({});
+  const [dunStatsState, setDunStatsState] = useState<DUNStatsMap>({});
+
   // Keep refs for map callbacks
   const activeMetricRef = useRef(activeMetric);
   useEffect(() => { activeMetricRef.current = activeMetric; }, [activeMetric]);
@@ -338,11 +368,16 @@ export default function MapDashboard() {
         if (map.getLayer(id)) map.setFilter(id, dunsFilter);
       });
       setDrilledParl(code);
+      const seatName = (statsRef.current[Object.keys(statsRef.current).find((k) => statsRef.current[k].code_parlimen === code) ?? '']?.name) ?? code;
+      setCurrentSelection({ type: 'parliament', code, label: `${code} ${seatName}` });
     } else {
       const bounds = findBounds(dunGeojsonRef.current, 'code_dun', code);
       if (bounds) {
         map.flyTo({ center: bounds.getCenter(), zoom: 12, duration: 1000, padding: { top: 60, bottom: 60, left: 340, right: 60 } });
       }
+      const dunKey = Object.keys(dunStatsRef.current).find((k) => dunStatsRef.current[k].code_dun === code);
+      const seatName = dunKey ? dunStatsRef.current[dunKey].name : code;
+      setCurrentSelection({ type: 'dun', code, label: `${code} ${seatName}` });
     }
     setShowSearch(false);
     setSearchQuery('');
@@ -395,7 +430,12 @@ export default function MapDashboard() {
     });
   }, []);
 
-  useEffect(() => { if (drilledParl && isMobile) setSidebarOpen(false); }, [drilledParl, isMobile]);
+  useEffect(() => {
+    if (drilledParl && isMobile) {
+      // Defer to avoid synchronous setState-in-effect cascade flagged by react-hooks.
+      queueMicrotask(() => setSidebarOpen(false));
+    }
+  }, [drilledParl, isMobile]);
 
   // Reset drill-down
   const resetDrillDown = useCallback(() => {
@@ -462,6 +502,24 @@ export default function MapDashboard() {
         // Store stats refs for search
         statsRef.current = stats;
         dunStatsRef.current = dunStats;
+        // Mirror to state so drawer components can read them as props.
+        setParlStatsState(stats);
+        setDunStatsState(dunStats);
+        // Compute summary stats now that stats are loaded (avoids reading
+        // the ref during render — see summaryStats state below).
+        const allParls = Object.values(stats);
+        if (allParls.length) {
+          setSummaryStats({
+            totalVoters: allParls.reduce((s, p) => s + p.total_voters, 0),
+            avgMalay: allParls.reduce((s, p) => s + p.malay_pct, 0) / allParls.length,
+            avgChinese: allParls.reduce((s, p) => s + p.chinese_pct, 0) / allParls.length,
+            avgIndian: allParls.reduce((s, p) => s + p.indian_pct, 0) / allParls.length,
+            avgAge: allParls.reduce((s, p) => s + p.age_mean, 0) / allParls.length,
+            avgContact: allParls.reduce((s, p) => s + p.contact_pct, 0) / allParls.length,
+            largest: allParls.reduce((a, b) => a.total_voters > b.total_voters ? a : b),
+            smallest: allParls.reduce((a, b) => a.total_voters < b.total_voters ? a : b),
+          });
+        }
 
         // DM centroids: try D1 API first, fall back to static GeoJSON
         let dmCentroids: GeoJSON.FeatureCollection | null = null;
@@ -498,7 +556,7 @@ export default function MapDashboard() {
         });
 
         map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
-        map.addControl(new NavigationControl(), 'top-right');
+        map.addControl(new NavigationControl(), 'bottom-right');
 
         let hoveredDunId: number | null = null;
 
@@ -601,6 +659,7 @@ export default function MapDashboard() {
             }
             popup.setLngLat(e.lngLat).setHTML(buildParliamentPopupHTML(props, true, codeParlimen)).addTo(map);
             setDrilledParl(codeParlimen);
+            setCurrentSelection({ type: 'parliament', code: codeParlimen, label: `${codeParlimen} ${props.name}` });
           });
 
           // ---- Parliament hover ----
@@ -626,6 +685,7 @@ export default function MapDashboard() {
             const codeDun = props.code_dun;
             const dunName = props.dun.replace(/^N\.\d+\s+/, '');
             popup.setLngLat(e.lngLat).setHTML(buildDUNPopupHTML(props, codeDun)).addTo(map);
+            setCurrentSelection({ type: 'dun', code: codeDun, label: `${codeDun} ${dunName}` });
           });
 
           // ---- DUN hover ----
@@ -677,6 +737,8 @@ export default function MapDashboard() {
               if (!e.features?.length) return;
               const props = e.features[0].properties as unknown as DMProperties;
               popup.setLngLat(e.lngLat).setHTML(buildDMPopupHTML(props, genderFilterRef.current, raceFilterRef.current)).addTo(map);
+              const dmName = props.dm_code.replace(/^[\d.]+\s*/, '');
+              setCurrentSelection({ type: 'dm', code: props.dm_code, label: dmName });
             });
           }
 
@@ -714,22 +776,6 @@ export default function MapDashboard() {
 
   const isDunZoom = mapZoom >= 9.5;
   const currentScale = isDunZoom ? (getDunScaleById(activeMetric) ?? getScaleById(activeMetric)) : getScaleById(activeMetric);
-
-  // Summary stats
-  const summaryStats = useMemo(() => {
-    const stats = statsRef.current;
-    const allParls = Object.values(stats);
-    if (!allParls.length) return null;
-    const totalVoters = allParls.reduce((s, p) => s + p.total_voters, 0);
-    const avgMalay = allParls.reduce((s, p) => s + p.malay_pct, 0) / allParls.length;
-    const avgChinese = allParls.reduce((s, p) => s + p.chinese_pct, 0) / allParls.length;
-    const avgIndian = allParls.reduce((s, p) => s + p.indian_pct, 0) / allParls.length;
-    const avgAge = allParls.reduce((s, p) => s + p.age_mean, 0) / allParls.length;
-    const avgContact = allParls.reduce((s, p) => s + p.contact_pct, 0) / allParls.length;
-    const largest = allParls.reduce((a, b) => a.total_voters > b.total_voters ? a : b);
-    const smallest = allParls.reduce((a, b) => a.total_voters < b.total_voters ? a : b);
-    return { totalVoters, avgMalay, avgChinese, avgIndian, avgAge, avgContact, largest, smallest };
-  }, []);
 
   return (
     <div className="relative w-full h-screen flex overflow-hidden bg-slate-100" onClick={handleMapContainerClick}>
@@ -1104,8 +1150,140 @@ export default function MapDashboard() {
             </div>
           </div>
         )}
+
+        {/* ===== Floating right-side feature toolbar ===== */}
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
+          <ToolButton
+            label="Analytics"
+            sublabel="Charts"
+            active={showAnalytics}
+            onClick={(e) => { e.stopPropagation(); setShowAnalytics(true); setShowInsights(false); setShowRanking(false); }}
+            gradient="from-emerald-500 to-teal-500"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+          </ToolButton>
+          <ToolButton
+            label="AI Insights"
+            sublabel="LLM"
+            active={showInsights}
+            onClick={(e) => { e.stopPropagation(); setShowInsights(true); setShowAnalytics(false); setShowRanking(false); }}
+            gradient="from-violet-500 to-fuchsia-500"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+          </ToolButton>
+          <ToolButton
+            label="Ranking"
+            sublabel="22 seats"
+            active={showRanking}
+            onClick={(e) => { e.stopPropagation(); setShowRanking(true); setShowAnalytics(false); setShowInsights(false); }}
+            gradient="from-slate-600 to-slate-800"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l9 6 9-6M3 12l9 6 9-6M3 18l9 6 9-6" /></svg>
+          </ToolButton>
+          <div className="relative">
+            <ToolButton
+              label="Bookmarks"
+              sublabel="Saved"
+              active={showBookmarks}
+              onClick={(e) => { e.stopPropagation(); setShowBookmarks((s) => !s); }}
+              gradient="from-amber-500 to-orange-500"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+            </ToolButton>
+            <BookmarksMenu
+              open={showBookmarks}
+              onClose={() => setShowBookmarks(false)}
+              currentCode={currentSelection?.code ?? null}
+              currentName={currentSelection?.type === 'parliament' || currentSelection?.type === 'dun' ? currentSelection.label.replace(/^[\w.]+\s*/, '') : null}
+              currentType={currentSelection?.type === 'parliament' || currentSelection?.type === 'dun' ? currentSelection.type : null}
+              onFlyTo={(code, type) => flyToConstituency(code, type)}
+            />
+          </div>
+        </div>
+
+        {/* ===== Current selection indicator (top-center) ===== */}
+        {currentSelection && !loading && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-slate-200/80 px-3 py-2 flex items-center gap-2 max-w-[280px] sm:max-w-[360px]">
+            <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${currentSelection.type === 'parliament' ? 'bg-emerald-100 text-emerald-700' : currentSelection.type === 'dun' ? 'bg-teal-100 text-teal-700' : currentSelection.type === 'dm' ? 'bg-rose-100 text-rose-700' : 'bg-violet-100 text-violet-700'}`}>
+              {currentSelection.type.toUpperCase()}
+            </span>
+            <span className="text-xs text-slate-700 font-medium truncate" title={currentSelection.label}>{currentSelection.label}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); setCurrentSelection(null); }}
+              className="text-slate-300 hover:text-rose-500 transition-colors flex-shrink-0"
+              aria-label="Clear selection"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        )}
+
+        {/* ===== Zoom level indicator ===== */}
+        {!loading && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-white/85 backdrop-blur-sm rounded-full shadow-md border border-slate-200/60 px-3 py-1 flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+            <span title="Current zoom">z{mapZoom.toFixed(1)}</span>
+            <span className="w-px h-3 bg-slate-200" />
+            <span className="text-slate-400">{isDunZoom ? 'DUN view' : 'Parliament view'}</span>
+          </div>
+        )}
+
+        {/* ===== Drawers ===== */}
+        <AnalyticsDrawer
+          open={showAnalytics}
+          onClose={() => setShowAnalytics(false)}
+          parliamentStats={parlStatsState}
+          dunStats={dunStatsState}
+          activeMetric={activeMetric}
+        />
+        <AiInsightsPanel
+          open={showInsights}
+          onClose={() => setShowInsights(false)}
+          selection={currentSelection}
+        />
+        <RankingTable
+          open={showRanking}
+          onClose={() => setShowRanking(false)}
+          parliamentStats={parlStatsState}
+          activeMetric={activeMetric}
+          onFlyTo={(code) => flyToConstituency(code, 'parliament')}
+        />
       </main>
     </div>
+  );
+}
+
+// ============================================================
+// Floating toolbar button
+// ============================================================
+
+function ToolButton({
+  children, label, sublabel, active, onClick, gradient,
+}: {
+  children: React.ReactNode;
+  label: string;
+  sublabel?: string;
+  active?: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  gradient: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative w-10 h-10 rounded-lg shadow-md hover:shadow-lg border transition-all flex items-center justify-center overflow-hidden ${
+        active
+          ? `bg-gradient-to-br ${gradient} text-white border-white/30 shadow-lg`
+          : 'bg-white/90 backdrop-blur-sm text-slate-600 border-slate-200/80 hover:bg-white hover:text-slate-900'
+      }`}
+      aria-label={label}
+      title={label}
+    >
+      {children}
+      {/* Tooltip on hover */}
+      <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg flex flex-col">
+        <span className="font-medium">{label}</span>
+        {sublabel && <span className="text-slate-300 text-[9px]">{sublabel}</span>}
+      </div>
+    </button>
   );
 }
 
