@@ -19,6 +19,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import OnboardingTour from '@/components/OnboardingTour';
 import DataTableView from '@/components/DataTableView';
+import ComparisonBarChart from '@/components/ComparisonBarChart';
 import { ToastProvider, useToast } from '@/components/Toast';
 
 // ============================================================
@@ -842,24 +843,38 @@ export default function MapDashboard() {
   }, []);
   useEffect(() => { updateMetric(activeMetric); }, [activeMetric, updateMetric]);
 
-  // Apply heatmap visualization mode
+  // Apply heatmap visualization mode (parliament + DUN layers)
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     if (!map.getLayer('parliament-fill')) return;
     if (vizMode === 'heatmap') {
-      // Heatmap: red-orange gradient based on total_voters
-      const heatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
+      // Parliament heatmap: red-orange gradient based on total_voters
+      const parlHeatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
         50000, 'rgba(255,239,213,0.3)',
         100000, 'rgba(255,165,0,0.6)',
         180000, 'rgba(255,69,0,0.75)',
         280000, 'rgba(178,34,34,0.85)',
       ];
-      map.setPaintProperty('parliament-fill', 'fill-color', heatExpr as any);
+      map.setPaintProperty('parliament-fill', 'fill-color', parlHeatExpr as any);
       map.setPaintProperty('parliament-fill', 'fill-opacity', 0.85);
+      // DUN heatmap: same gradient but tuned for DUN voter range (20K-134K)
+      if (map.getLayer('dun-fill')) {
+        const dunHeatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
+          20000, 'rgba(255,239,213,0.3)',
+          45000, 'rgba(255,165,0,0.6)',
+          80000, 'rgba(255,69,0,0.75)',
+          134000, 'rgba(178,34,34,0.85)',
+        ];
+        map.setPaintProperty('dun-fill', 'fill-color', dunHeatExpr as any);
+        map.setPaintProperty('dun-fill', 'fill-opacity', 0.7);
+      }
     } else {
       // Restore choropleth
       updateMetric(activeMetric);
       map.setPaintProperty('parliament-fill', 'fill-opacity', theme === 'dark' ? 0.55 : 0.72);
+      if (map.getLayer('dun-fill')) {
+        map.setPaintProperty('dun-fill', 'fill-opacity', theme === 'dark' ? 0.45 : 0.5);
+      }
     }
   }, [vizMode, activeMetric, theme, updateMetric]);
 
@@ -1335,6 +1350,8 @@ export default function MapDashboard() {
                       contact_pct: summaryStats.avgContact,
                     } : undefined}
                   />
+                  {/* Grouped bar chart comparing race percentages */}
+                  <ComparisonBarChart seats={comparisonList} />
                   <div className="space-y-2">
                     {comparisonList.map((seat) => {
                       const voters = (seat.data.total_voters as number) || 0;
@@ -1514,6 +1531,7 @@ export default function MapDashboard() {
               currentName={currentSelection?.type === 'parliament' || currentSelection?.type === 'dun' ? currentSelection.label.replace(/^[\w.]+\s*/, '') : null}
               currentType={currentSelection?.type === 'parliament' || currentSelection?.type === 'dun' ? currentSelection.type : null}
               onFlyTo={(code, type) => flyToConstituency(code, type)}
+              onToast={toast}
             />
           </div>
           {/* Data Table button — opens full-screen sortable table */}

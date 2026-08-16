@@ -38,10 +38,11 @@ interface BookmarksMenuProps {
   currentName: string | null;
   currentType: 'parliament' | 'dun' | null;
   onFlyTo: (code: string, type: 'parliament' | 'dun') => void;
+  onToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 export default function BookmarksMenu({
-  open, onClose, currentCode, currentName, currentType, onFlyTo,
+  open, onClose, currentCode, currentName, currentType, onFlyTo, onToast,
 }: BookmarksMenuProps) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => loadBookmarks());
   const [justSaved, setJustSaved] = useState(false);
@@ -50,15 +51,21 @@ export default function BookmarksMenu({
 
   const save = useCallback(() => {
     if (!canSaveCurrent || !currentCode || !currentName || !currentType) return;
+    let alreadyExists = false;
     setBookmarks((prev) => {
-      if (prev.some((b) => b.code === currentCode)) return prev;
+      if (prev.some((b) => b.code === currentCode)) { alreadyExists = true; return prev; }
       const next = [{ code: currentCode, name: currentName, type: currentType, savedAt: Date.now() }, ...prev];
       saveBookmarks(next);
       return next;
     });
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 1500);
-  }, [canSaveCurrent, currentCode, currentName, currentType]);
+    if (alreadyExists) {
+      onToast?.(`${currentCode} already bookmarked`, 'info');
+    } else {
+      onToast?.(`Bookmarked ${currentCode} ${currentName}`, 'success');
+    }
+  }, [canSaveCurrent, currentCode, currentName, currentType, onToast]);
 
   const remove = useCallback((code: string) => {
     setBookmarks((prev) => {
@@ -66,7 +73,8 @@ export default function BookmarksMenu({
       saveBookmarks(next);
       return next;
     });
-  }, []);
+    onToast?.(`Removed bookmark ${code}`, 'info');
+  }, [onToast]);
 
   if (!open) return null;
 
