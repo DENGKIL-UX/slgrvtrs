@@ -16,6 +16,7 @@ const DEFAULT_SHORTCUTS: { key: string; desc: string; group?: string }[] = [
   { key: 'I', desc: 'Toggle AI Insights panel', group: 'Drawers' },
   { key: 'R', desc: 'Toggle Ranking table', group: 'Drawers' },
   { key: 'B', desc: 'Toggle Bookmarks menu', group: 'Drawers' },
+  { key: 'D', desc: 'Open Data Table explorer', group: 'Drawers' },
   { key: 'T', desc: 'Toggle Theme (light/dark)', group: 'View' },
   { key: 'S', desc: 'Open Share menu', group: 'View' },
   { key: 'Esc', desc: 'Close any open drawer/popup', group: 'View' },

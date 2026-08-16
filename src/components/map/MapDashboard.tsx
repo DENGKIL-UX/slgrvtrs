@@ -18,6 +18,8 @@ import ShareButton from '@/components/ShareButton';
 import ThemeToggle from '@/components/ThemeToggle';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import OnboardingTour from '@/components/OnboardingTour';
+import DataTableView from '@/components/DataTableView';
+import { ToastProvider, useToast } from '@/components/Toast';
 
 // ============================================================
 // Provenance data (embedded)
@@ -284,6 +286,8 @@ export default function MapDashboard() {
   // Theme + basemap state
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [basemap, setBasemap] = useState<'light' | 'dark' | 'satellite'>('light');
+  // Data table view
+  const [showDataTable, setShowDataTable] = useState(false);
 
   // Summary stats — populated once the voter stats JSON has loaded (see bootstrap effect).
   // Kept as state (not a ref read during render) to satisfy react-hooks/refs.
@@ -945,6 +949,10 @@ export default function MapDashboard() {
           e.preventDefault();
           setShowBookmarks((o) => !o);
           break;
+        case 'd': case 'D':
+          e.preventDefault();
+          setShowDataTable((o) => !o);
+          break;
         case 't': case 'T':
           e.preventDefault();
           setTheme((t) => {
@@ -1455,6 +1463,16 @@ export default function MapDashboard() {
               onFlyTo={(code, type) => flyToConstituency(code, type)}
             />
           </div>
+          {/* Data Table button — opens full-screen sortable table */}
+          <ToolButton
+            label="Data Table"
+            sublabel="Press D"
+            active={showDataTable}
+            onClick={(e) => { e.stopPropagation(); setShowDataTable(true); }}
+            gradient="from-indigo-500 to-purple-500"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+          </ToolButton>
           {/* Share button — encodes map view into URL hash */}
           <ShareButton
             getState={() => {
@@ -1483,6 +1501,14 @@ export default function MapDashboard() {
 
         {/* ===== First-visit onboarding tour ===== */}
         <OnboardingTour />
+
+        {/* ===== Data Table View (press D) ===== */}
+        <DataTableView
+          open={showDataTable}
+          onClose={() => setShowDataTable(false)}
+          parliamentStats={parlStatsState}
+          dunStats={dunStatsState}
+        />
 
         {/* ===== Current selection indicator (top-center) ===== */}
         {currentSelection && !loading && (
