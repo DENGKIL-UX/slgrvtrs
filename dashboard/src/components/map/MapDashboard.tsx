@@ -15,6 +15,8 @@ import RankingTable from '@/components/RankingTable';
 import BookmarksMenu from '@/components/BookmarksMenu';
 import ComparisonRadar from '@/components/ComparisonRadar';
 import ShareButton from '@/components/ShareButton';
+import ThemeToggle from '@/components/ThemeToggle';
+import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 
 // ============================================================
 // Provenance data (embedded)
@@ -278,6 +280,9 @@ export default function MapDashboard() {
   const [showBookmarks, setShowBookmarks] = useState(false);
   // Tracks the currently selected seat for the AI insights panel.
   const [currentSelection, setCurrentSelection] = useState<{ type: 'state' | 'parliament' | 'dun' | 'dm'; code: string | null; label: string } | null>(null);
+  // Theme + basemap state
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [basemap, setBasemap] = useState<'light' | 'dark' | 'satellite'>('light');
 
   // Summary stats — populated once the voter stats JSON has loaded (see bootstrap effect).
   // Kept as state (not a ref read during render) to satisfy react-hooks/refs.
@@ -361,8 +366,9 @@ export default function MapDashboard() {
 
     if (type === 'parliament') {
       const bounds = findBounds(parlGeojsonRef.current, 'code_parlimen', code);
-      if (bounds) {
-        map.flyTo({ center: bounds.getCenter(), zoom: 10, duration: 1000, padding: { top: 60, bottom: 60, left: 340, right: 60 } });
+      const center = bounds ? bounds.getCenter() : undefined;
+      if (bounds && center) {
+        map.flyTo({ center, zoom: 10, duration: 1000, padding: { top: 60, bottom: 60, left: 340, right: 60 } });
       }
       // Trigger drill-down
       const dunsFilter: FilterSpecification = ['==', ['get', 'parent_parl'], code] as unknown as FilterSpecification;
@@ -372,14 +378,40 @@ export default function MapDashboard() {
       setDrilledParl(code);
       const seatName = (statsRef.current[Object.keys(statsRef.current).find((k) => statsRef.current[k].code_parlimen === code) ?? '']?.name) ?? code;
       setCurrentSelection({ type: 'parliament', code, label: `${code} ${seatName}` });
+      // Auto-open parliament popup after flyTo completes (UX fix for search-flyTo gap)
+      const statsKey = Object.keys(statsRef.current).find((k) => statsRef.current[k].code_parlimen === code);
+      if (statsKey && center) {
+        const seatStats = statsRef.current[statsKey] as PopupData;
+        seatStats.voter_prefix = statsKey;
+        map.once('moveend', () => {
+          const popup = popupRef.current;
+          if (popup) {
+            popup.setLngLat(center).setHTML(buildParliamentPopupHTML(seatStats, true, code)).addTo(map);
+          }
+        });
+      }
     } else {
       const bounds = findBounds(dunGeojsonRef.current, 'code_dun', code);
-      if (bounds) {
-        map.flyTo({ center: bounds.getCenter(), zoom: 12, duration: 1000, padding: { top: 60, bottom: 60, left: 340, right: 60 } });
+      const center = bounds ? bounds.getCenter() : undefined;
+      if (bounds && center) {
+        map.flyTo({ center, zoom: 12, duration: 1000, padding: { top: 60, bottom: 60, left: 340, right: 60 } });
       }
       const dunKey = Object.keys(dunStatsRef.current).find((k) => dunStatsRef.current[k].code_dun === code);
       const seatName = dunKey ? dunStatsRef.current[dunKey].name : code;
       setCurrentSelection({ type: 'dun', code, label: `${code} ${seatName}` });
+      // Auto-open DUN popup after flyTo completes
+      if (center && dunGeojsonRef.current) {
+        const feat = dunGeojsonRef.current.features.find((f) => (f.properties as any)?.code_dun === code);
+        if (feat) {
+          const props = feat.properties as unknown as DUNProperties;
+          map.once('moveend', () => {
+            const popup = popupRef.current;
+            if (popup) {
+              popup.setLngLat(center).setHTML(buildDUNPopupHTML(props, code)).addTo(map);
+            }
+          });
+        }
+      }
     }
     setShowSearch(false);
     setSearchQuery('');
@@ -801,6 +833,93 @@ export default function MapDashboard() {
     const onZoom = () => setMapZoom(map.getZoom());
     map.on('zoom', onZoom);
     return () => { map.off('zoom', onZoom); };
+  }, []);
+
+  // Apply theme + basemap to map background + layer opacities
+  useEffect(() => {
+    const map = mapRef.current; if (!map) return;
+    const bgColor = basemap === 'dark' || theme === 'dark' ? '#0f172a' : '#f0f4f8';
+    if (map.getLayer('background')) {
+      map.setPaintProperty('background', 'background-color', bgColor);
+    }
+    // Adjust layer opacities for dark mode
+    const fillOpacity = theme === 'dark' ? 0.55 : 0.72;
+    if (map.getLayer('parliament-fill')) map.setPaintProperty('parliament-fill', 'fill-opacity', fillOpacity);
+    if (map.getLayer('dun-fill')) map.setPaintProperty('dun-fill', 'fill-opacity', theme === 'dark' ? 0.45 : 0.5);
+    if (map.getLayer('outline-fill')) map.setPaintProperty('outline-fill', 'fill-color', theme === 'dark' ? '#1e293b' : '#e8edf3');
+    if (map.getLayer('outline-border')) map.setPaintProperty('outline-border', 'line-color', theme === 'dark' ? '#475569' : '#334155');
+  }, [theme, basemap]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+      // Don't trigger if meta/ctrl held (browser shortcuts)
+      if (e.metaKey || e.ctrlKey) return;
+
+      switch (e.key) {
+        case '/':
+          e.preventDefault();
+          (document.querySelector('input[placeholder*="Search"]') as HTMLInputElement)?.focus();
+          break;
+        case '1':
+          setActiveTab('layers');
+          break;
+        case '2':
+          setActiveTab('filters');
+          break;
+        case '3':
+          setActiveTab('compare');
+          break;
+        case 'a': case 'A':
+          e.preventDefault();
+          setShowAnalytics((o) => !o);
+          setShowInsights(false);
+          setShowRanking(false);
+          break;
+        case 'i': case 'I':
+          e.preventDefault();
+          setShowInsights((o) => !o);
+          setShowAnalytics(false);
+          setShowRanking(false);
+          break;
+        case 'r': case 'R':
+          e.preventDefault();
+          setShowRanking((o) => !o);
+          setShowAnalytics(false);
+          setShowInsights(false);
+          break;
+        case 'b': case 'B':
+          e.preventDefault();
+          setShowBookmarks((o) => !o);
+          break;
+        case 't': case 'T':
+          e.preventDefault();
+          setTheme((t) => {
+            const next = t === 'light' ? 'dark' : 'light';
+            if (next === 'dark') {
+              document.documentElement.classList.add('dark');
+              setBasemap('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+              setBasemap('light');
+            }
+            try { localStorage.setItem('slgrvtrs:theme', next); localStorage.setItem('slgrvtrs:basemap', next); } catch { /* ignore */ }
+            return next;
+          });
+          break;
+        case 'Escape':
+          setShowAnalytics(false);
+          setShowInsights(false);
+          setShowRanking(false);
+          setShowBookmarks(false);
+          popupRef.current?.remove();
+          break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   const isDunZoom = mapZoom >= 9.5;
@@ -1255,7 +1374,15 @@ export default function MapDashboard() {
               };
             }}
           />
+          {/* Theme + basemap toggle */}
+          <ThemeToggle
+            onThemeChange={(t) => setTheme(t)}
+            onBasemapChange={(b) => setBasemap(b)}
+          />
         </div>
+
+        {/* ===== Keyboard shortcuts help button (bottom-right) ===== */}
+        <KeyboardShortcuts />
 
         {/* ===== Current selection indicator (top-center) ===== */}
         {currentSelection && !loading && (
