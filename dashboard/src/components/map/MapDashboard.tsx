@@ -1129,8 +1129,13 @@ export default function MapDashboard() {
 // Popup HTML builders — Enhanced with visual bars and bilingual labels
 // ============================================================
 
+function escapeHTMLAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean, code: string): string {
   const compareData = JSON.stringify({ code, name: p.name, type: 'parliament', data: { total_voters: p.total_voters, male: p.male, female: p.female, male_pct: p.male_pct, female_pct: p.female_pct, malay_pct: p.malay_pct, chinese_pct: p.chinese_pct, indian_pct: p.indian_pct, other_pct: p.other_pct, age_mean: p.age_mean, age_median: p.age_median, contact_pct: p.contact_pct } });
+  const safeCompareData = escapeHTMLAttr(compareData);
   return `
     <div style="font-family:system-ui,-apple-system,sans-serif;min-width:280px;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
@@ -1141,7 +1146,7 @@ function buildParliamentPopupHTML(p: PopupData, isDrillDown: boolean, code: stri
             Kawasan Persekutuan
           </div>
         </div>
-        <button onclick="window.dispatchEvent(new CustomEvent('slgrvtrs:compare',{detail:${compareData}}))" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">+ Compare</button>
+        <button data-c="${safeCompareData}" onclick="window.dispatchEvent(new CustomEvent('slgrvtrs:compare',{detail:JSON.parse(this.dataset.c)}))" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">+ Compare</button>
       </div>
       <div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
         <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Jumlah Pengundi / Total Voters</div>
@@ -1189,6 +1194,7 @@ function buildDUNPopupHTML(p: DUNProperties, codeDun: string): string {
   }
 
   const compareData = JSON.stringify({ code: codeDun, name: dunName, type: 'dun', data: { total_voters: p.total_voters, male: p.male, female: p.female, male_pct: p.male_pct, female_pct: p.female_pct, malay_pct: p.malay_pct, chinese_pct: p.chinese_pct, indian_pct: p.indian_pct, other_pct: p.other_pct, age_mean: p.age_mean, age_median: p.age_median, contact_pct: p.contact_pct, dm_count: p.dm_count } });
+  const safeCompareData = escapeHTMLAttr(compareData);
 
   return `<div style="font-family:system-ui,-apple-system,sans-serif;min-width:280px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
@@ -1199,7 +1205,7 @@ function buildDUNPopupHTML(p: DUNProperties, codeDun: string): string {
           Dewan Undangan Negeri
         </div>
       </div>
-      <button onclick="window.dispatchEvent(new CustomEvent('slgrvtrs:compare',{detail:${compareData}}))" style="background:#f0fdfa;border:1px solid #99f6e4;color:#0d9488;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'">+ Compare</button>
+      <button data-c="${safeCompareData}" onclick="window.dispatchEvent(new CustomEvent('slgrvtrs:compare',{detail:JSON.parse(this.dataset.c)}))" style="background:#f0fdfa;border:1px solid #99f6e4;color:#0d9488;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:500;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='#f0fdfa'">+ Compare</button>
     </div>
     <div style="margin-top:6px;padding:4px 8px;background:#f0fdfa;border-radius:6px;font-size:10px;color:#0f766e;border:1px solid #ccfbf1;">
       Parent: <strong>${p.parent_parl}</strong> ${parlName}
