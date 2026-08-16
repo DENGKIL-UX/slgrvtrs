@@ -11,6 +11,8 @@ interface ShareButtonProps {
     metric: string;
     parl?: string | null;
   };
+  /** Optional toast callback for user feedback */
+  onToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 /**
@@ -19,7 +21,7 @@ interface ShareButtonProps {
  *
  * Hash format: #m=<metric>&lng=<lng>&lat=<lat>&z=<zoom>&p=<parl>
  */
-export default function ShareButton({ getState }: ShareButtonProps) {
+export default function ShareButton({ getState, onToast }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -40,16 +42,24 @@ export default function ShareButton({ getState }: ShareButtonProps) {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
+      onToast?.('Shareable link copied to clipboard', 'success');
     } catch {
       // Fallback: select the URL in a text input for manual copy
       const input = document.createElement('input');
       input.value = url;
       document.body.appendChild(input);
       input.select();
-      try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ }
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+        onToast?.('Shareable link copied to clipboard', 'success');
+      } catch {
+        onToast?.('Failed to copy link — copy manually from address bar', 'error');
+      }
       document.body.removeChild(input);
     }
-  }, [buildUrl]);
+  }, [buildUrl, onToast]);
 
   // Close on outside click (proper effect, not render-time)
   useEffect(() => {

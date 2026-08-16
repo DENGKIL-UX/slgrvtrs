@@ -145,6 +145,35 @@
   box-shadow: none !important;
 }
 
+/* Dark mode popup — override inline styles via CSS specificity */
+.dark .maplibregl-popup-content {
+  background: rgba(15, 23, 42, 0.97) !important;
+  border: 1px solid rgba(71, 85, 105, 0.5) !important;
+}
+.dark .maplibregl-popup-content div[style*="color:#0f172a"] {
+  color: #f1f5f9 !important;
+}
+.dark .maplibregl-popup-content div[style*="color:#334155"] {
+  color: #cbd5e1 !important;
+}
+.dark .maplibregl-popup-content div[style*="color:#64748b"] {
+  color: #94a3b8 !important;
+}
+.dark .maplibregl-popup-content div[style*="color:#94a3b8"] {
+  color: #64748b !important;
+}
+.dark .maplibregl-popup-content div[style*="background:#f8fafc"] {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border-color: rgba(51, 65, 85, 0.5) !important;
+}
+.dark .maplibregl-popup-content div[style*="background:#f1f5f9"],
+.dark .maplibregl-popup-content div[style*="border:1px solid #f1f5f9"] {
+  border-color: rgba(51, 65, 85, 0.5) !important;
+}
+.dark .maplibregl-popup-tip {
+  border-top-color: rgba(15, 23, 42, 0.97) !important;
+}
+
 .maplibregl-popup-close-button {
   font-size: 18px !important;
   color: #94a3b8 !important;
