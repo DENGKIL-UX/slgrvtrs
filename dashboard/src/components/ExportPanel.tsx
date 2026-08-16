@@ -68,11 +68,18 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
       .catch(() => {});
   }, [passwordSetVersion]);
 
-  // Sync filter when drilledParl changes
+  // Sync filter when drilledParl changes — only apply if current level supports it
   useEffect(() => {
     if (drilledParl) {
-      setFilterMode('parliament');
-      setSelectedCode(drilledParl);
+      // Parliament level has no “by parliament” filter; auto-switch to DUN
+      if (level === 'parliament') {
+        setLevel('dun');
+        setFilterMode('parliament');
+        setSelectedCode(drilledParl);
+      } else {
+        setFilterMode('parliament');
+        setSelectedCode(drilledParl);
+      }
     }
   }, [drilledParl]);
 
@@ -166,7 +173,17 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
           ]).map((l) => (
             <button
               key={l.value}
-              onClick={() => { setLevel(l.value); setFilterMode('all'); setSelectedCode(''); }}
+              onClick={() => {
+                setLevel(l.value);
+                // Re-apply drilledParl filter for levels that support it
+                if (drilledParl && l.value !== 'parliament') {
+                  setFilterMode('parliament');
+                  setSelectedCode(drilledParl);
+                } else {
+                  setFilterMode('all');
+                  setSelectedCode('');
+                }
+              }}
               className={`flex-1 py-1.5 text-[10px] rounded-lg border transition-all font-medium ${level === l.value ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
             >{l.label}<span className="ml-1 text-[9px] opacity-60">({l.count})</span></button>
           ))}

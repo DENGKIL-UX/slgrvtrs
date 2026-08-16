@@ -46,14 +46,21 @@ export async function POST(request: NextRequest) {
     let filename: string;
 
     if (level === 'parliament') {
-      const result = await env.DB
-        .prepare('SELECT * FROM parliaments ORDER BY code_parlimen')
-        .all();
+      let sql = 'SELECT * FROM parliaments';
+      const params: (string | number)[] = [];
+      if (code) {
+        sql += ' WHERE code_parlimen = ?';
+        params.push(code);
+      }
+      sql += ' ORDER BY code_parlimen';
+      const result = await env.DB.prepare(sql).bind(...params).all();
       csv = buildCSV(
         [...PARLIAMENT_COLUMNS],
         result.results.map(mapParlRow),
       );
-      filename = 'slgrvtrs_parliaments.csv';
+      filename = code
+        ? `slgrvtrs_parliaments_${code.replace('.', '')}.csv`
+        : 'slgrvtrs_parliaments.csv';
     } else if (level === 'dun') {
       let sql: string;
       const params: (string | number)[] = [];
