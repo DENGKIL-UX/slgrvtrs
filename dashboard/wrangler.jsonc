@@ -29,5 +29,12 @@
       "binding": "TILES",
       "bucket_name": "slgrvtrs-tiles"
     }
-  ]
+  ],
+
+  // Cloudflare AI Workers binding — enables env.AI.run() for LLM inference
+  // Used by /api/insights to generate electoral data insights
+  // Free tier: 10,000 neurons/day (~1,400 insights/day with Llama 3.3 70B)
+  "ai": {
+    "binding": "AI"
+  }
 }
