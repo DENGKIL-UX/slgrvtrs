@@ -1,14 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { ParliamentStats } from '@/lib/map/join-stats';
+import type { ParliamentStats, DunStats } from '@/lib/map/join-stats';
 
 interface RankingTableProps {
   open: boolean;
   onClose: () => void;
   parliamentStats: Record<string, ParliamentStats>;
+  dunStats: Record<string, DunStats>;
   activeMetric: string;
-  onFlyTo?: (code: string) => void;
+  onFlyTo?: (code: string, type: 'parliament' | 'dun') => void;
 }
 
 const METRICS = [
@@ -25,31 +26,59 @@ const METRICS = [
 ] as const;
 
 type SortDir = 'asc' | 'desc';
+type Level = 'parliament' | 'dun';
+
+interface Row {
+  code: string;
+  name: string;
+  parentCode?: string;
+  parentName?: string;
+  value: number;
+}
 
 export default function RankingTable({
-  open, onClose, parliamentStats, activeMetric, onFlyTo,
+  open, onClose, parliamentStats, dunStats, activeMetric, onFlyTo,
 }: RankingTableProps) {
+  const [level, setLevel] = useState<Level>('parliament');
   const [metric, setMetric] = useState<string>(activeMetric);
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [query, setQuery] = useState('');
 
   const meta = useMemo(() => METRICS.find((m) => m.id === metric) ?? METRICS[0], [metric]);
 
-  const rows = useMemo(() => {
-    const all = Object.values(parliamentStats);
+  const rows = useMemo<Row[]>(() => {
     const prop = metric as keyof ParliamentStats;
-    const filtered = query
-      ? all.filter((p) =>
-          p.code_parlimen.toLowerCase().includes(query.toLowerCase()) ||
-          p.name.toLowerCase().includes(query.toLowerCase()))
+    const q = query.toLowerCase();
+    if (level === 'parliament') {
+      const all = Object.values(parliamentStats);
+      const filtered = q
+        ? all.filter((p) => p.code_parlimen.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
+        : all;
+      return [...filtered]
+        .map((p) => ({ code: p.code_parlimen, name: p.name, value: p[prop] as number }))
+        .sort((a, b) => sortDir === 'desc' ? b.value - a.value : a.value - b.value);
+    }
+    // DUN level
+    const parlMap: Record<string, string> = {};
+    Object.values(parliamentStats).forEach((p) => { parlMap[p.code_parlimen] = p.name; });
+    const all = Object.values(dunStats);
+    const filtered = q
+      ? all.filter((d) => d.code_dun.toLowerCase().includes(q) || d.name.toLowerCase().includes(q) || d.code_parlimen.toLowerCase().includes(q))
       : all;
-    return [...filtered].sort((a, b) => {
-      const diff = (a[prop] as number) - (b[prop] as number);
-      return sortDir === 'desc' ? -diff : diff;
-    });
-  }, [parliamentStats, metric, sortDir, query]);
+    return [...filtered]
+      .map((d) => ({
+        code: d.code_dun,
+        name: d.name,
+        parentCode: d.code_parlimen,
+        parentName: parlMap[d.code_parlimen] ?? '',
+        value: d[prop as keyof DunStats] as number,
+      }))
+      .sort((a, b) => sortDir === 'desc' ? b.value - a.value : a.value - b.value);
+  }, [level, parliamentStats, dunStats, metric, sortDir, query]);
 
   if (!open) return null;
+
+  const totalCount = level === 'parliament' ? Object.keys(parliamentStats).length : Object.keys(dunStats).length;
 
   return (
     <>
@@ -68,8 +97,8 @@ export default function RankingTable({
               </svg>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">Parliament Ranking</h2>
-              <p className="text-[10px] text-slate-300">Sort & explore all 22 seats</p>
+              <h2 className="text-sm font-bold text-white tracking-tight">Constituency Ranking</h2>
+              <p className="text-[10px] text-slate-300">Sort & explore {totalCount} {level === 'parliament' ? 'parliaments' : 'DUNs'}</p>
             </div>
           </div>
           <button
@@ -83,6 +112,23 @@ export default function RankingTable({
           </button>
         </div>
 
+        {/* Level toggle */}
+        <div className="flex-shrink-0 px-3 pt-3 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex gap-1 mb-2">
+            {(['parliament', 'dun'] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLevel(l)}
+                className={`flex-1 py-1.5 text-[11px] rounded-md border transition-all font-medium ${level === l
+                  ? 'bg-slate-700 border-slate-700 text-white shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+              >
+                {l === 'parliament' ? `Parliament (22)` : `DUN (56)`}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Controls */}
         <div className="flex-shrink-0 p-3 space-y-2 border-b border-slate-100 bg-slate-50/50">
           <div className="flex gap-2">
@@ -94,7 +140,7 @@ export default function RankingTable({
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Filter by code or name…"
+                placeholder={`Filter by code or name…`}
                 className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
               />
             </div>
@@ -132,34 +178,37 @@ export default function RankingTable({
                 <th className="px-3 py-2 font-semibold w-10">#</th>
                 <th className="px-1 py-2 font-semibold">Code</th>
                 <th className="px-1 py-2 font-semibold">Name</th>
+                {level === 'dun' && <th className="px-1 py-2 font-semibold">Parliament</th>}
                 <th className="px-3 py-2 font-semibold text-right">{meta.label}</th>
                 <th className="px-2 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((p, i) => {
-                const val = p[metric as keyof ParliamentStats] as number;
-                const max = Math.max(...rows.map((r) => r[metric as keyof ParliamentStats] as number));
-                const barPct = max > 0 ? (val / max) * 100 : 0;
+              {rows.map((r, i) => {
+                const max = rows.length ? Math.max(...rows.map((x) => x.value)) : 0;
+                const barPct = max > 0 ? (r.value / max) * 100 : 0;
                 return (
                   <tr
-                    key={p.code_parlimen}
+                    key={r.code}
                     className="border-t border-slate-100 hover:bg-emerald-50/40 transition-colors group"
                   >
                     <td className="px-3 py-2 text-slate-400 font-mono tabular-nums">{i + 1}</td>
-                    <td className="px-1 py-2 font-semibold text-slate-700">{p.code_parlimen}</td>
-                    <td className="px-1 py-2 text-slate-600 truncate max-w-[120px]" title={p.name}>{p.name}</td>
+                    <td className="px-1 py-2 font-semibold text-slate-700">{r.code}</td>
+                    <td className="px-1 py-2 text-slate-600 truncate max-w-[100px]" title={r.name}>{r.name}</td>
+                    {level === 'dun' && (
+                      <td className="px-1 py-2 text-[10px] text-slate-400 truncate max-w-[80px]" title={`${r.parentCode} ${r.parentName}`}>{r.parentCode}</td>
+                    )}
                     <td className="px-3 py-2 text-right relative">
                       <div className="absolute inset-y-1 right-2 rounded bg-emerald-100/60" style={{ width: `${barPct}%` }} />
-                      <span className="relative font-semibold text-slate-800 tabular-nums">{meta.fmt(val)}</span>
+                      <span className="relative font-semibold text-slate-800 tabular-nums">{meta.fmt(r.value)}</span>
                     </td>
                     <td className="px-2 py-2">
                       {onFlyTo && (
                         <button
-                          onClick={() => onFlyTo(p.code_parlimen)}
+                          onClick={() => onFlyTo(r.code, level)}
                           className="opacity-0 group-hover:opacity-100 text-emerald-500 hover:text-emerald-700 transition-all"
-                          title="Fly to this seat"
-                          aria-label={`Fly to ${p.code_parlimen}`}
+                          title={`Fly to ${r.code}`}
+                          aria-label={`Fly to ${r.code}`}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -174,7 +223,7 @@ export default function RankingTable({
             </tbody>
           </table>
           {rows.length === 0 && (
-            <div className="text-center py-8 text-slate-400 text-xs">No matches for "{query}"</div>
+            <div className="text-center py-8 text-slate-400 text-xs">No matches for &quot;{query}&quot;</div>
           )}
         </div>
       </aside>

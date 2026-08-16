@@ -835,8 +835,30 @@ export default function MapDashboard() {
     return () => { map.off('zoom', onZoom); };
   }, []);
 
-  // Apply theme + basemap to map background + layer opacities
+  // Load persisted theme + basemap on mount
   useEffect(() => {
+    const savedTheme = localStorage.getItem('slgrvtrs:theme') as 'light' | 'dark' | null;
+    const savedBasemap = localStorage.getItem('slgrvtrs:basemap') as 'light' | 'dark' | 'satellite' | null;
+    if (savedTheme) {
+      queueMicrotask(() => {
+        setTheme(savedTheme);
+        if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+      });
+    }
+    if (savedBasemap) {
+      queueMicrotask(() => setBasemap(savedBasemap));
+    }
+  }, []);
+
+  // Apply theme + basemap to map background + layer opacities + <html> class
+  useEffect(() => {
+    // Apply .dark class to <html> for CSS variable theming
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    // Apply to map
     const map = mapRef.current; if (!map) return;
     const bgColor = basemap === 'dark' || theme === 'dark' ? '#0f172a' : '#f0f4f8';
     if (map.getLayer('background')) {
@@ -934,7 +956,7 @@ export default function MapDashboard() {
 
       {/* ======= Sidebar ======= */}
       <aside
-        className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 ease-in-out bg-white/95 backdrop-blur-md border-r border-slate-200/80 flex-shrink-0 overflow-hidden flex flex-col ${isMobile ? 'fixed top-0 left-0 h-full z-30 shadow-2xl' : 'relative'}`}
+        className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 ease-in-out ${theme === 'dark' ? 'bg-slate-900/95 border-slate-700' : 'bg-white/95 border-slate-200/80'} backdrop-blur-md border-r flex-shrink-0 overflow-hidden flex flex-col ${isMobile ? 'fixed top-0 left-0 h-full z-30 shadow-2xl' : 'relative'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with gradient accent */}
@@ -1007,12 +1029,12 @@ export default function MapDashboard() {
         </div>
 
         {/* Tab navigation */}
-        <div className="flex border-b border-slate-200/80 flex-shrink-0">
+        <div className={`flex border-b flex-shrink-0 ${theme === 'dark' ? 'border-slate-700' : 'border-slate-200/80'}`}>
           {(['layers', 'filters', 'compare'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 text-[11px] font-medium transition-colors relative ${activeTab === tab ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors relative ${activeTab === tab ? 'text-emerald-600' : theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
             >
               {tab === 'layers' ? 'Layers' : tab === 'filters' ? 'Metrics' : 'Compare'}
               {activeTab === tab && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-emerald-500 rounded-full" />}
@@ -1164,9 +1186,43 @@ export default function MapDashboard() {
             <div className="p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Seat Comparison (max 3)</label>
-                {comparisonList.length > 0 && (
-                  <button onClick={() => setComparisonList([])} className="text-[10px] text-rose-500 hover:text-rose-700 font-medium hover:underline">Clear All</button>
-                )}
+                <div className="flex items-center gap-2">
+                  {comparisonList.length > 0 && (
+                    <button
+                      onClick={() => {
+                        // Export comparison seats as a side-by-side CSV
+                        const headers = ['Code', 'Name', 'Type', 'Total Voters', 'Male %', 'Female %', 'Malay %', 'Chinese %', 'Indian %', 'Others %', 'Mean Age', 'Median Age', 'Contact %'];
+                        const lines = [headers.join(',')];
+                        const esc = (s: string) => /[,\"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+                        comparisonList.forEach((s) => {
+                          const d = s.data;
+                          lines.push([
+                            s.code, s.name, s.type,
+                            d.total_voters, d.male_pct, d.female_pct,
+                            d.malay_pct, d.chinese_pct, d.indian_pct, d.other_pct,
+                            d.age_mean, d.age_median, d.contact_pct,
+                          ].map((v) => esc(String(v))).join(','));
+                        });
+                        const csv = lines.join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `slgrvtrs_comparison_${comparisonList.length}seats.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium hover:underline flex items-center gap-1"
+                      title="Download comparison as CSV"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Export CSV
+                    </button>
+                  )}
+                  {comparisonList.length > 0 && (
+                    <button onClick={() => setComparisonList([])} className="text-[10px] text-rose-500 hover:text-rose-700 font-medium hover:underline">Clear All</button>
+                  )}
+                </div>
               </div>
               <p className="text-[10px] text-slate-400">Click any constituency popup's &quot;+ Compare&quot; button to add it here.</p>
               {comparisonList.length === 0 ? (
@@ -1374,8 +1430,10 @@ export default function MapDashboard() {
               };
             }}
           />
-          {/* Theme + basemap toggle */}
+          {/* Theme + basemap toggle (controlled — state lifted to MapDashboard) */}
           <ThemeToggle
+            theme={theme}
+            basemap={basemap}
             onThemeChange={(t) => setTheme(t)}
             onBasemapChange={(b) => setBasemap(b)}
           />
@@ -1427,8 +1485,9 @@ export default function MapDashboard() {
           open={showRanking}
           onClose={() => setShowRanking(false)}
           parliamentStats={parlStatsState}
+          dunStats={dunStatsState}
           activeMetric={activeMetric}
-          onFlyTo={(code) => flyToConstituency(code, 'parliament')}
+          onFlyTo={(code, type) => flyToConstituency(code, type)}
         />
       </main>
     </div>

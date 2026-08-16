@@ -1,86 +1,67 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
-type Theme = 'light' | 'dark';
-type BasemapStyle = 'light' | 'dark' | 'satellite';
+export type Theme = 'light' | 'dark';
+export type BasemapStyle = 'light' | 'dark' | 'satellite';
 
 interface ThemeToggleProps {
-  /** Called when the theme changes; the MapDashboard switches the map background color */
-  onThemeChange?: (theme: Theme) => void;
+  /** Controlled theme — lifted to MapDashboard so keyboard T + this button stay in sync */
+  theme: Theme;
+  /** Controlled basemap style */
+  basemap: BasemapStyle;
+  /** Called when the theme changes */
+  onThemeChange: (theme: Theme) => void;
   /** Called when the basemap style changes */
-  onBasemapChange?: (style: BasemapStyle) => void;
+  onBasemapChange: (style: BasemapStyle) => void;
 }
 
-const STORAGE_KEY = 'slgrvtrs:theme';
-const BASEMAP_KEY = 'slgrvtrs:basemap';
+export const THEME_STORAGE_KEY = 'slgrvtrs:theme';
+export const BASEMAP_STORAGE_KEY = 'slgrvtrs:basemap';
 
 /**
- * Floating theme + basemap toggle.
+ * Floating theme + basemap toggle (controlled component).
  *
- * - Cycles light → dark for the UI (applies `.dark` class on <html>).
- * - Switches the map background color + layer opacity to match.
- * - Persists the choice in localStorage.
+ * State is lifted to the parent (MapDashboard) so that both the keyboard
+ * "T" shortcut and this button stay in sync. This component only renders
+ * the UI and fires callbacks.
  */
-export default function ThemeToggle({ onThemeChange, onBasemapChange }: ThemeToggleProps) {
-  const [theme, setTheme] = useState<Theme>('light');
-  const [basemap, setBasemap] = useState<BasemapStyle>('light');
+export default function ThemeToggle({ theme, basemap, onThemeChange, onBasemapChange }: ThemeToggleProps) {
   const [open, setOpen] = useState(false);
 
-  const applyTheme = useCallback((t: Theme) => {
-    if (typeof document === 'undefined') return;
-    if (t === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
-
-  // Load persisted theme on mount (deferred to avoid setState-in-effect cascade)
+  // Close on outside click
   useEffect(() => {
-    const savedTheme = (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY)) as Theme | null;
-    const savedBasemap = (typeof window !== 'undefined' && localStorage.getItem(BASEMAP_KEY)) as BasemapStyle | null;
-    if (savedTheme || savedBasemap) {
-      queueMicrotask(() => {
-        if (savedTheme) {
-          setTheme(savedTheme);
-          applyTheme(savedTheme);
-          onThemeChange?.(savedTheme);
-        }
-        if (savedBasemap) {
-          setBasemap(savedBasemap);
-          onBasemapChange?.(savedBasemap);
-        }
-      });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-theme-toggle]')) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
-  const toggleTheme = useCallback(() => {
-    const next: Theme = theme === 'light' ? 'dark' : 'light';
-    setTheme(next);
-    applyTheme(next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
-    onThemeChange?.(next);
+  const handleSelectTheme = (t: Theme) => {
+    onThemeChange(t);
+    try { localStorage.setItem(THEME_STORAGE_KEY, t); } catch { /* ignore */ }
     // If switching to dark, also switch basemap to dark (unless satellite)
-    if (next === 'dark' && basemap === 'light') {
-      setBasemap('dark');
-      try { localStorage.setItem(BASEMAP_KEY, 'dark'); } catch { /* ignore */ }
-      onBasemapChange?.('dark');
-    } else if (next === 'light' && basemap === 'dark') {
-      setBasemap('light');
-      try { localStorage.setItem(BASEMAP_KEY, 'light'); } catch { /* ignore */ }
-      onBasemapChange?.('light');
+    if (t === 'dark' && basemap === 'light') {
+      onBasemapChange('dark');
+      try { localStorage.setItem(BASEMAP_STORAGE_KEY, 'dark'); } catch { /* ignore */ }
+    } else if (t === 'light' && basemap === 'dark') {
+      onBasemapChange('light');
+      try { localStorage.setItem(BASEMAP_STORAGE_KEY, 'light'); } catch { /* ignore */ }
     }
-  }, [theme, basemap, applyTheme, onThemeChange, onBasemapChange]);
+  };
 
-  const selectBasemap = useCallback((style: BasemapStyle) => {
-    setBasemap(style);
-    try { localStorage.setItem(BASEMAP_KEY, style); } catch { /* ignore */ }
-    onBasemapChange?.(style);
-  }, [onBasemapChange]);
+  const handleSelectBasemap = (style: BasemapStyle) => {
+    onBasemapChange(style);
+    try { localStorage.setItem(BASEMAP_STORAGE_KEY, style); } catch { /* ignore */ }
+  };
 
   return (
-    <div className="relative">
+    <div className="relative" data-theme-toggle>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
         className={`group relative w-10 h-10 rounded-lg shadow-md hover:shadow-lg border transition-all flex items-center justify-center overflow-hidden ${
@@ -115,7 +96,7 @@ export default function ThemeToggle({ onThemeChange, onBasemapChange }: ThemeTog
           <div className="p-3 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => { if (theme !== 'light') toggleTheme(); }}
+                onClick={() => handleSelectTheme('light')}
                 className={`flex flex-col items-center gap-1 py-2.5 rounded-lg border-2 transition-all ${
                   theme === 'light'
                     ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
@@ -128,7 +109,7 @@ export default function ThemeToggle({ onThemeChange, onBasemapChange }: ThemeTog
                 <span className="text-[10px] font-semibold">Light</span>
               </button>
               <button
-                onClick={() => { if (theme !== 'dark') toggleTheme(); }}
+                onClick={() => handleSelectTheme('dark')}
                 className={`flex flex-col items-center gap-1 py-2.5 rounded-lg border-2 transition-all ${
                   theme === 'dark'
                     ? 'border-violet-400 bg-violet-50 text-violet-700'
@@ -154,7 +135,7 @@ export default function ThemeToggle({ onThemeChange, onBasemapChange }: ThemeTog
             ]).map((opt) => (
               <button
                 key={opt.id}
-                onClick={() => selectBasemap(opt.id)}
+                onClick={() => handleSelectBasemap(opt.id)}
                 disabled={opt.id === 'satellite'}
                 className={`w-full flex items-center gap-2.5 p-2 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   basemap === opt.id
