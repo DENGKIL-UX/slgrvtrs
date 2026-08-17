@@ -1322,9 +1322,9 @@ export default function MapDashboard() {
                 </div>
               </div>
 
-              {/* Legend */}
+              {/* Legend — shows heatmap colors when heatmap mode is active */}
               <div className={`rounded-lg p-3 border ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/50 border-slate-100'}`}>
-                <Legend scale={currentScale} />
+                <Legend scale={currentScale} heatmapMode={vizMode === 'heatmap'} />
               </div>
 
               {/* Quick stats summary */}
