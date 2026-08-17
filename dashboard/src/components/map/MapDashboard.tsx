@@ -851,32 +851,58 @@ export default function MapDashboard() {
   useEffect(() => { updateMetric(activeMetric); }, [activeMetric, updateMetric]);
 
   // Apply heatmap visualization mode (parliament + DUN layers)
+  // Heatmap uses the ACTIVE METRIC's data to drive the red-orange gradient,
+  // so switching metrics (e.g. Malay %, Chinese %) changes the heatmap colors.
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     if (!map.getLayer('parliament-fill')) return;
+
+    // Get the color scale for the active metric to determine min/max range
+    const scale = getScaleById(activeMetric);
+    const prop = scale.property;
+    const stops = scale.stops;
+    const minVal = stops[0][0];
+    const maxVal = stops[stops.length - 1][0];
+
     if (vizMode === 'heatmap') {
-      // Parliament heatmap: red-orange gradient based on total_voters
-      const parlHeatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
-        50000, 'rgba(255,239,213,0.3)',
-        100000, 'rgba(255,165,0,0.6)',
-        180000, 'rgba(255,69,0,0.75)',
-        280000, 'rgba(178,34,34,0.85)',
+      // Parliament heatmap: red-orange gradient based on the ACTIVE METRIC
+      const range = maxVal - minVal;
+      const q1 = minVal + range * 0.25;
+      const q2 = minVal + range * 0.5;
+      const q3 = minVal + range * 0.75;
+      const parlHeatExpr = ['interpolate', ['linear'], ['get', prop],
+        minVal, 'rgba(255,239,213,0.3)',
+        q1, 'rgba(255,200,100,0.5)',
+        q2, 'rgba(255,140,0,0.65)',
+        q3, 'rgba(255,69,0,0.75)',
+        maxVal, 'rgba(178,34,34,0.85)',
       ];
       map.setPaintProperty('parliament-fill', 'fill-color', parlHeatExpr as any);
       map.setPaintProperty('parliament-fill', 'fill-opacity', 0.85);
-      // DUN heatmap: same gradient but tuned for DUN voter range (20K-134K)
+
+      // DUN heatmap: same metric, tuned for DUN value ranges
       if (map.getLayer('dun-fill')) {
-        const dunHeatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
-          20000, 'rgba(255,239,213,0.3)',
-          45000, 'rgba(255,165,0,0.6)',
-          80000, 'rgba(255,69,0,0.75)',
-          134000, 'rgba(178,34,34,0.85)',
+        const dunScale = getDunScaleById(activeMetric) ?? scale;
+        const dunProp = dunScale.property;
+        const dunStops = dunScale.stops;
+        const dunMin = dunStops[0][0];
+        const dunMax = dunStops[dunStops.length - 1][0];
+        const dunRange = dunMax - dunMin;
+        const dunQ1 = dunMin + dunRange * 0.25;
+        const dunQ2 = dunMin + dunRange * 0.5;
+        const dunQ3 = dunMin + dunRange * 0.75;
+        const dunHeatExpr = ['interpolate', ['linear'], ['get', dunProp],
+          dunMin, 'rgba(255,239,213,0.3)',
+          dunQ1, 'rgba(255,200,100,0.5)',
+          dunQ2, 'rgba(255,140,0,0.65)',
+          dunQ3, 'rgba(255,69,0,0.75)',
+          dunMax, 'rgba(178,34,34,0.85)',
         ];
         map.setPaintProperty('dun-fill', 'fill-color', dunHeatExpr as any);
         map.setPaintProperty('dun-fill', 'fill-opacity', 0.7);
       }
     } else {
-      // Restore choropleth
+      // Restore choropleth — use the metric's own color scale
       updateMetric(activeMetric);
       map.setPaintProperty('parliament-fill', 'fill-opacity', theme === 'dark' ? 0.55 : 0.72);
       if (map.getLayer('dun-fill')) {
