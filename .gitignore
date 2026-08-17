@@ -40,3 +40,14 @@ bun.lock
 next-env.d.ts
 tsconfig.tsbuildinfo
 dm_voters/
+
+# Local development artifacts
+tool-results/
+dev.log
+*.log
+
+# Large voter registry xlsx files (now stored in private R2 bucket,
+# not in the repo — see XLSX_TRANSFER_RESEARCH.md)
+source-data/*.xlsx
+source-data/
+db/custom.db

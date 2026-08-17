@@ -9,6 +9,7 @@ import { buildColorExpression, getScaleById, getDunScaleById, COLOR_SCALES, DUN_
 import Legend from '@/components/map/Legend';
 import SettingsGear from '@/components/SettingsGear';
 import ExportPanel from '@/components/ExportPanel';
+import PasswordDialog from '@/components/PasswordDialog';
 import AnalyticsDrawer from '@/components/AnalyticsDrawer';
 import AiInsightsPanel from '@/components/AiInsightsPanel';
 import RankingTable from '@/components/RankingTable';
@@ -20,6 +21,8 @@ import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import OnboardingTour from '@/components/OnboardingTour';
 import DataTableView from '@/components/DataTableView';
 import ComparisonBarChart from '@/components/ComparisonBarChart';
+import RecentlyViewed, { pushRecent } from '@/components/RecentlyViewed';
+import ScreenshotButton from '@/components/ScreenshotButton';
 import { ToastProvider, useToast } from '@/components/Toast';
 
 // ============================================================
@@ -55,9 +58,9 @@ interface PopupData extends ParliamentStats {
 }
 
 interface DUNStats {
+  code_parlimen: string;
   code_dun: string;
   name: string;
-  code_parlimen: string;
   total_voters: number;
   male: number;
   female: number;
@@ -283,13 +286,30 @@ export default function MapDashboard() {
   const [showInsights, setShowInsights] = useState(false);
   const [showRanking, setShowRanking] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showRecent, setShowRecent] = useState(false);
   // Tracks the currently selected seat for the AI insights panel.
   const [currentSelection, setCurrentSelection] = useState<{ type: 'state' | 'parliament' | 'dun' | 'dm'; code: string | null; label: string } | null>(null);
+
+  // Wrapper around setCurrentSelection that ALSO pushes parliament/DUN/DM
+  // selections into the "Recently Viewed" history stored in localStorage.
+  // State updates and the localStorage side-effect are decoupled so React
+  // doesn't complain about setState-during-render.
+  const selectSeat = useCallback((sel: { type: 'state' | 'parliament' | 'dun' | 'dm'; code: string | null; label: string } | null) => {
+    setCurrentSelection(sel);
+    if (sel && sel.code && (sel.type === 'parliament' || sel.type === 'dun' || sel.type === 'dm')) {
+      // Strip leading "P.092 " / "N.01 " etc. from the label so the recent
+      // list shows a clean constituency name.
+      const cleanName = sel.label.replace(/^[A-Z]\.\d+\s+/, '').trim() || sel.label;
+      pushRecent({ code: sel.code, name: cleanName, type: sel.type });
+    }
+  }, []);
   // Theme + basemap state
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [basemap, setBasemap] = useState<'light' | 'dark' | 'satellite'>('light');
   // Data table view
   const [showDataTable, setShowDataTable] = useState(false);
+  // Comparison CSV export password dialog
+  const [showComparisonPwDialog, setShowComparisonPwDialog] = useState(false);
   // Visualization mode: 'choropleth' (normal) or 'heatmap' (red-orange gradient)
   const [vizMode, setVizMode] = useState<'choropleth' | 'heatmap'>('choropleth');
   // Fullscreen map mode (hides sidebar)
@@ -388,7 +408,7 @@ export default function MapDashboard() {
       });
       setDrilledParl(code);
       const seatName = (statsRef.current[Object.keys(statsRef.current).find((k) => statsRef.current[k].code_parlimen === code) ?? '']?.name) ?? code;
-      setCurrentSelection({ type: 'parliament', code, label: `${code} ${seatName}` });
+      selectSeat({ type: 'parliament', code, label: `${code} ${seatName}` });
       // Auto-open parliament popup after flyTo completes (UX fix for search-flyTo gap)
       const statsKey = Object.keys(statsRef.current).find((k) => statsRef.current[k].code_parlimen === code);
       if (statsKey && center) {
@@ -409,7 +429,7 @@ export default function MapDashboard() {
       }
       const dunKey = Object.keys(dunStatsRef.current).find((k) => dunStatsRef.current[k].code_dun === code);
       const seatName = dunKey ? dunStatsRef.current[dunKey].name : code;
-      setCurrentSelection({ type: 'dun', code, label: `${code} ${seatName}` });
+      selectSeat({ type: 'dun', code, label: `${code} ${seatName}` });
       // Auto-open DUN popup after flyTo completes
       if (center && dunGeojsonRef.current) {
         const feat = dunGeojsonRef.current.features.find((f) => (f.properties as any)?.code_dun === code);
@@ -429,20 +449,27 @@ export default function MapDashboard() {
     setSearchResults([]);
   }, []);
 
-  // Add to comparison — exposed via global event for popup HTML buttons
+  // Add to comparison — exposed via global event for popup HTML buttons.
+  // IMPORTANT: never call `toast()` inside a `setComparisonList(prev => ...)`
+  // updater — the updater can run during render of another component and
+  // React 19 will throw "Cannot update a component while rendering a different
+  // component". We snapshot the current list with a ref and decide the toast
+  // message outside the updater.
+  const comparisonListRef = useRef<ComparisonSeat[]>([]);
+  useEffect(() => { comparisonListRef.current = comparisonList; }, [comparisonList]);
+
   const addToComparison = useCallback((code: string, name: string, type: 'parliament' | 'dun', data: Record<string, number | string>) => {
-    setComparisonList(prev => {
-      if (prev.length >= 3) {
-        toast('Comparison is full (max 3 seats)', 'warning');
-        return prev;
-      }
-      if (prev.some(s => s.code === code)) {
-        toast(`${code} already in comparison`, 'info');
-        return prev;
-      }
-      toast(`Added ${code} to comparison`, 'success');
-      return [...prev, { code, name, type, data }];
-    });
+    const current = comparisonListRef.current;
+    if (current.length >= 3 && !current.some(s => s.code === code)) {
+      toast('Comparison is full (max 3 seats)', 'warning');
+      return;
+    }
+    if (current.some(s => s.code === code)) {
+      toast(`${code} already in comparison`, 'info');
+      return;
+    }
+    setComparisonList(prev => [...prev, { code, name, type, data }]);
+    toast(`Added ${code} to comparison`, 'success');
     setShowComparison(true);
     setActiveTab('compare');
   }, [toast]);
@@ -478,9 +505,11 @@ export default function MapDashboard() {
       const visible = next[group] ? 'visible' : 'none';
       const layerIds = group === 'parliament' ? PARLIAMENT_LAYER_IDS : group === 'dun' ? DUN_LAYER_IDS : DM_LAYER_IDS;
       layerIds.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible); });
+      const labels: Record<string, string> = { parliament: 'Parliament', dun: 'DUN', dm: 'DM Bubbles' };
+      toast(`${labels[group]} layer ${next[group] ? 'on' : 'off'}`, 'info', 1500);
       return next;
     });
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (drilledParl && isMobile) {
@@ -711,7 +740,7 @@ export default function MapDashboard() {
             }
             popup.setLngLat(e.lngLat).setHTML(buildParliamentPopupHTML(props, true, codeParlimen)).addTo(map);
             setDrilledParl(codeParlimen);
-            setCurrentSelection({ type: 'parliament', code: codeParlimen, label: `${codeParlimen} ${props.name}` });
+            selectSeat({ type: 'parliament', code: codeParlimen, label: `${codeParlimen} ${props.name}` });
           });
 
           // ---- Parliament hover ----
@@ -737,7 +766,7 @@ export default function MapDashboard() {
             const codeDun = props.code_dun;
             const dunName = props.dun.replace(/^N\.\d+\s+/, '');
             popup.setLngLat(e.lngLat).setHTML(buildDUNPopupHTML(props, codeDun)).addTo(map);
-            setCurrentSelection({ type: 'dun', code: codeDun, label: `${codeDun} ${dunName}` });
+            selectSeat({ type: 'dun', code: codeDun, label: `${codeDun} ${dunName}` });
           });
 
           // ---- DUN hover ----
@@ -790,7 +819,7 @@ export default function MapDashboard() {
               const props = e.features[0].properties as unknown as DMProperties;
               popup.setLngLat(e.lngLat).setHTML(buildDMPopupHTML(props, genderFilterRef.current, raceFilterRef.current)).addTo(map);
               const dmName = props.dm_code.replace(/^[\d.]+\s*/, '');
-              setCurrentSelection({ type: 'dm', code: props.dm_code, label: dmName });
+              selectSeat({ type: 'dm', code: props.dm_code, label: dmName });
             });
           }
 
@@ -846,32 +875,58 @@ export default function MapDashboard() {
   useEffect(() => { updateMetric(activeMetric); }, [activeMetric, updateMetric]);
 
   // Apply heatmap visualization mode (parliament + DUN layers)
+  // Heatmap uses the ACTIVE METRIC's data to drive the red-orange gradient,
+  // so switching metrics (e.g. Malay %, Chinese %) changes the heatmap colors.
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     if (!map.getLayer('parliament-fill')) return;
+
+    // Get the color scale for the active metric to determine min/max range
+    const scale = getScaleById(activeMetric);
+    const prop = scale.property;
+    const stops = scale.stops;
+    const minVal = stops[0][0];
+    const maxVal = stops[stops.length - 1][0];
+
     if (vizMode === 'heatmap') {
-      // Parliament heatmap: red-orange gradient based on total_voters
-      const parlHeatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
-        50000, 'rgba(255,239,213,0.3)',
-        100000, 'rgba(255,165,0,0.6)',
-        180000, 'rgba(255,69,0,0.75)',
-        280000, 'rgba(178,34,34,0.85)',
+      // Parliament heatmap: red-orange gradient based on the ACTIVE METRIC
+      const range = maxVal - minVal;
+      const q1 = minVal + range * 0.25;
+      const q2 = minVal + range * 0.5;
+      const q3 = minVal + range * 0.75;
+      const parlHeatExpr = ['interpolate', ['linear'], ['get', prop],
+        minVal, 'rgba(255,239,213,0.3)',
+        q1, 'rgba(255,200,100,0.5)',
+        q2, 'rgba(255,140,0,0.65)',
+        q3, 'rgba(255,69,0,0.75)',
+        maxVal, 'rgba(178,34,34,0.85)',
       ];
       map.setPaintProperty('parliament-fill', 'fill-color', parlHeatExpr as any);
       map.setPaintProperty('parliament-fill', 'fill-opacity', 0.85);
-      // DUN heatmap: same gradient but tuned for DUN voter range (20K-134K)
+
+      // DUN heatmap: same metric, tuned for DUN value ranges
       if (map.getLayer('dun-fill')) {
-        const dunHeatExpr = ['interpolate', ['linear'], ['get', 'total_voters'],
-          20000, 'rgba(255,239,213,0.3)',
-          45000, 'rgba(255,165,0,0.6)',
-          80000, 'rgba(255,69,0,0.75)',
-          134000, 'rgba(178,34,34,0.85)',
+        const dunScale = getDunScaleById(activeMetric) ?? scale;
+        const dunProp = dunScale.property;
+        const dunStops = dunScale.stops;
+        const dunMin = dunStops[0][0];
+        const dunMax = dunStops[dunStops.length - 1][0];
+        const dunRange = dunMax - dunMin;
+        const dunQ1 = dunMin + dunRange * 0.25;
+        const dunQ2 = dunMin + dunRange * 0.5;
+        const dunQ3 = dunMin + dunRange * 0.75;
+        const dunHeatExpr = ['interpolate', ['linear'], ['get', dunProp],
+          dunMin, 'rgba(255,239,213,0.3)',
+          dunQ1, 'rgba(255,200,100,0.5)',
+          dunQ2, 'rgba(255,140,0,0.65)',
+          dunQ3, 'rgba(255,69,0,0.75)',
+          dunMax, 'rgba(178,34,34,0.85)',
         ];
         map.setPaintProperty('dun-fill', 'fill-color', dunHeatExpr as any);
         map.setPaintProperty('dun-fill', 'fill-opacity', 0.7);
       }
     } else {
-      // Restore choropleth
+      // Restore choropleth — use the metric's own color scale
       updateMetric(activeMetric);
       map.setPaintProperty('parliament-fill', 'fill-opacity', theme === 'dark' ? 0.55 : 0.72);
       if (map.getLayer('dun-fill')) {
@@ -996,10 +1051,32 @@ export default function MapDashboard() {
         case 'b': case 'B':
           e.preventDefault();
           setShowBookmarks((o) => !o);
+          setShowRecent(false);
+          break;
+        case 'h': case 'H':
+          e.preventDefault();
+          setShowRecent((o) => !o);
+          setShowBookmarks(false);
           break;
         case 'd': case 'D':
           e.preventDefault();
           setShowDataTable((o) => !o);
+          break;
+        case 'p': case 'P':
+          e.preventDefault();
+          // Trigger screenshot via a custom event the ScreenshotButton
+          // listens for. This avoids needing to lift the capture function
+          // up to MapDashboard state.
+          window.dispatchEvent(new CustomEvent('slgrvtrs:screenshot'));
+          toast('Capturing map as PNG…', 'info', 1500);
+          break;
+        case 'c': case 'C':
+          e.preventDefault();
+          if (currentSelection) {
+            setCurrentSelection(null);
+            popupRef.current?.remove();
+            toast('Selection cleared', 'info', 1500);
+          }
           break;
         case 'f': case 'F':
           e.preventDefault();
@@ -1026,13 +1103,14 @@ export default function MapDashboard() {
           setShowInsights(false);
           setShowRanking(false);
           setShowBookmarks(false);
+          setShowRecent(false);
           popupRef.current?.remove();
           break;
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [fullscreen, currentSelection, toast]);
 
   const isDunZoom = mapZoom >= 9.5;
   const currentScale = isDunZoom ? (getDunScaleById(activeMetric) ?? getScaleById(activeMetric)) : getScaleById(activeMetric);
@@ -1291,9 +1369,9 @@ export default function MapDashboard() {
                 </div>
               </div>
 
-              {/* Legend */}
+              {/* Legend — shows heatmap colors when heatmap mode is active */}
               <div className={`rounded-lg p-3 border ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/50 border-slate-100'}`}>
-                <Legend scale={currentScale} />
+                <Legend scale={currentScale} heatmapMode={vizMode === 'heatmap'} />
               </div>
 
               {/* Quick stats summary */}
@@ -1360,32 +1438,9 @@ export default function MapDashboard() {
                 <div className="flex items-center gap-2">
                   {comparisonList.length > 0 && (
                     <button
-                      onClick={() => {
-                        // Export comparison seats as a side-by-side CSV
-                        const headers = ['Code', 'Name', 'Type', 'Total Voters', 'Male %', 'Female %', 'Malay %', 'Chinese %', 'Indian %', 'Others %', 'Mean Age', 'Median Age', 'Contact %'];
-                        const lines = [headers.join(',')];
-                        const esc = (s: string) => /[,\"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-                        comparisonList.forEach((s) => {
-                          const d = s.data;
-                          lines.push([
-                            s.code, s.name, s.type,
-                            d.total_voters, d.male_pct, d.female_pct,
-                            d.malay_pct, d.chinese_pct, d.indian_pct, d.other_pct,
-                            d.age_mean, d.age_median, d.contact_pct,
-                          ].map((v) => esc(String(v))).join(','));
-                        });
-                        const csv = lines.join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `slgrvtrs_comparison_${comparisonList.length}seats.csv`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        toast(`Exported ${comparisonList.length} seats to CSV`, 'success');
-                      }}
+                      onClick={() => setShowComparisonPwDialog(true)}
                       className="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium hover:underline flex items-center gap-1"
-                      title="Download comparison as CSV"
+                      title="Download comparison as CSV (password protected)"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       Export CSV
@@ -1471,10 +1526,27 @@ export default function MapDashboard() {
           </div>
         )}
 
-        {/* Footer */}
-        <div className="px-3 py-2 border-t border-slate-200/80 flex-shrink-0 bg-slate-50/50">
-          <p className="text-[9px] text-slate-400 leading-relaxed">Boundaries: MECo (CC0) &middot; Not official SPR boundaries.</p>
-          <p className="text-[9px] text-slate-400 mt-0.5">Phase 7 &middot; Password-Protected CSV Export</p>
+        {/* Sidebar footer — provenance + version + quick links */}
+        <div className={`px-3 py-2.5 border-t flex-shrink-0 ${theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50/80 border-slate-200/80'}`}>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${theme === 'dark' ? 'bg-emerald-400' : 'bg-emerald-500'} animate-live-pulse`} aria-hidden="true" />
+              <span className={`text-[9px] font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`}>Live Data</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowProvenance(true); }}
+              className={`text-[9px] font-medium hover:underline transition-colors ${theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+              aria-label="Show data provenance"
+            >
+              Sources &rarr;
+            </button>
+          </div>
+          <p className={`text-[9px] leading-relaxed ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+            Boundaries: <span className="font-medium">MECo</span> (CC0) &middot; Not official SPR boundaries.
+          </p>
+          <p className={`text-[9px] mt-0.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+            <span className="font-mono">v2.7</span> &middot; Phase 11 &middot; {comparisonList.length}/3 compare &middot; {layers.parliament ? 'P' : '·'}{layers.dun ? 'D' : '·'}{layers.dm ? 'B' : '·'}
+          </p>
         </div>
       </aside>
 
@@ -1626,6 +1698,24 @@ export default function MapDashboard() {
               onToast={toast}
             />
           </div>
+          {/* Recently Viewed — pops a panel showing the last 8 visited seats */}
+          <div className="relative">
+            <ToolButton
+              label="Recent"
+              sublabel="History"
+              active={showRecent}
+              onClick={(e) => { e.stopPropagation(); setShowRecent((s) => !s); setShowBookmarks(false); }}
+              gradient="from-violet-500 to-fuchsia-500"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </ToolButton>
+            <RecentlyViewed
+              open={showRecent}
+              onClose={() => setShowRecent(false)}
+              onFlyTo={(code, type) => flyToConstituency(code, type)}
+              onClear={() => toast('History cleared', 'info')}
+            />
+          </div>
           {/* Data Table button — opens full-screen sortable table */}
           <ToolButton
             label="Data Table"
@@ -1636,6 +1726,12 @@ export default function MapDashboard() {
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
           </ToolButton>
+          {/* Screenshot — captures the current MapLibre canvas as a PNG */}
+          <ScreenshotButton
+            getMap={() => mapRef.current}
+            filenamePrefix="slgrvtrs-map"
+            onToast={toast}
+          />
           {/* Share button — encodes map view into URL hash */}
           <ShareButton
             getState={() => {
@@ -1672,6 +1768,7 @@ export default function MapDashboard() {
           onClose={() => setShowDataTable(false)}
           parliamentStats={parlStatsState}
           dunStats={dunStatsState}
+          onFlyTo={(code, type) => flyToConstituency(code, type)}
         />
 
         {/* ===== Current selection indicator (top-center) ===== */}
@@ -1691,12 +1788,35 @@ export default function MapDashboard() {
           </div>
         )}
 
-        {/* ===== Zoom level indicator ===== */}
+        {/* ===== Bottom status bar — zoom + view mode + selection + metric ===== */}
         {!loading && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-white/85 backdrop-blur-sm rounded-full shadow-md border border-slate-200/60 px-3 py-1 flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-            <span title="Current zoom">z{mapZoom.toFixed(1)}</span>
-            <span className="w-px h-3 bg-slate-200" />
-            <span className="text-slate-400">{isDunZoom ? 'DUN view' : 'Parliament view'}</span>
+          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-10 ${theme === 'dark' ? 'bg-slate-900/85 text-slate-200 border-slate-700/60' : 'bg-white/85 text-slate-600 border-slate-200/60'} backdrop-blur-sm rounded-full shadow-lg border px-3.5 py-1.5 flex items-center gap-2.5 text-[10px] font-mono max-w-[calc(100vw-100px)] sm:max-w-[90vw] overflow-x-auto no-scrollbar`}>
+            <span title="Current zoom" className="flex items-center gap-1 flex-shrink-0">
+              <svg className={`w-3 h-3 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              z{mapZoom.toFixed(1)}
+            </span>
+            <span className={`w-px h-3 flex-shrink-0 ${theme === 'dark' ? 'bg-slate-700' : 'bg-slate-200'}`} />
+            <span className={`flex-shrink-0 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{isDunZoom ? 'DUN view' : 'Parliament view'}</span>
+            <span className={`hidden sm:block w-px h-3 flex-shrink-0 ${theme === 'dark' ? 'bg-slate-700' : 'bg-slate-200'}`} />
+            <span className={`hidden sm:block ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} title="Active choropleth metric">
+              {COLOR_SCALES.find(s => s.id === activeMetric)?.label ?? activeMetric}
+            </span>
+            {currentSelection?.code && (
+              <>
+                <span className={`w-px h-3 flex-shrink-0 ${theme === 'dark' ? 'bg-slate-700' : 'bg-slate-200'}`} />
+                <span className={`font-semibold flex-shrink-0 ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`} title="Currently selected seat">
+                  {currentSelection.code}
+                </span>
+              </>
+            )}
+            {comparisonList.length > 0 && (
+              <>
+                <span className={`w-px h-3 flex-shrink-0 ${theme === 'dark' ? 'bg-slate-700' : 'bg-slate-200'}`} />
+                <span className={`${theme === 'dark' ? 'text-rose-300' : 'text-rose-600'} font-semibold flex-shrink-0`} title="Seats in comparison tray">
+                  {comparisonList.length}/3 ♦
+                </span>
+              </>
+            )}
           </div>
         )}
 
@@ -1720,6 +1840,34 @@ export default function MapDashboard() {
           dunStats={dunStatsState}
           activeMetric={activeMetric}
           onFlyTo={(code, type) => flyToConstituency(code, type)}
+        />
+
+        {/* Comparison CSV export password dialog */}
+        <PasswordDialog
+          open={showComparisonPwDialog}
+          onClose={() => setShowComparisonPwDialog(false)}
+          onSubmit={async (password: string) => {
+            const res = await fetch('/api/export/comparison', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password, seats: comparisonList }),
+            });
+            if (!res.ok) {
+              const d = await res.json().catch(() => ({ error: 'Request failed' }));
+              throw new Error(d.error || `HTTP ${res.status}`);
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const cd = res.headers.get('Content-Disposition') || '';
+            const match = cd.match(/filename="?([^";]+)"?/);
+            a.href = url;
+            a.download = match ? match[1] : `slgrvtrs_comparison_${comparisonList.length}seats.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast(`Exported ${comparisonList.length} seats to CSV`, 'success');
+          }}
+          description={`Download ${comparisonList.length} comparison seats as password-protected CSV`}
         />
       </main>
     </div>

@@ -105,6 +105,31 @@ export default function AnalyticsDrawer({
 
   const totalDms = useMemo(() => Object.values(dunStats).reduce((s, d) => s + d.dm_count, 0), [dunStats]);
 
+  // Contact-rate distribution (how reachable voters are per parliament)
+  const contactData = useMemo(() => {
+    return Object.values(parliamentStats)
+      .map((p) => ({ name: p.code_parlimen, contact: p.contact_pct, fullName: p.name }))
+      .sort((a, b) => b.contact - a.contact);
+  }, [parliamentStats]);
+
+  // Headline stats: voter density (voters per DM) and avg contact rate
+  const headline = useMemo(() => {
+    const all = Object.values(parliamentStats);
+    const totalVoters = all.reduce((s, p) => s + p.total_voters, 0);
+    // contact_pct is stored as a percentage (e.g. 69.53). Voter-weighted
+    // average = Σ(pct × voters) / Σ(voters). No extra /100 — keep it in %.
+    const avgContact = all.reduce((s, p) => s + p.contact_pct * p.total_voters, 0) / (totalVoters || 1);
+    // age_mean is stored as years (e.g. 41.2). Voter-weighted average.
+    const avgAge = all.reduce((s, p) => s + p.age_mean * p.total_voters, 0) / (totalVoters || 1);
+    const voterDensity = totalDms > 0 ? totalVoters / totalDms : 0;
+    return {
+      totalVoters,
+      avgContact: avgContact || 0,
+      avgAge: avgAge || 0,
+      voterDensity: Math.round(voterDensity),
+    };
+  }, [parliamentStats, totalDms]);
+
   if (!open) return null;
 
   return (
@@ -151,6 +176,54 @@ export default function AnalyticsDrawer({
             <KpiCard label="Parliaments" value={String(Object.keys(parliamentStats).length)} accent="emerald" />
             <KpiCard label="DUNs" value={String(Object.keys(dunStats).length)} accent="teal" />
             <KpiCard label="DMs" value={totalDms.toLocaleString()} accent="rose" />
+          </div>
+
+          {/* Voter-weighted headline metrics */}
+          <div className="grid grid-cols-2 gap-2">
+            <MetricCard
+              label="Total Voters"
+              value={headline.totalVoters.toLocaleString()}
+              sub="across Selangor"
+              accent="emerald"
+              icon={
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              }
+            />
+            <MetricCard
+              label="Avg Contact %"
+              value={`${headline.avgContact.toFixed(1)}%`}
+              sub="voter-weighted"
+              accent="violet"
+              icon={
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              }
+            />
+            <MetricCard
+              label="Avg Mean Age"
+              value={headline.avgAge.toFixed(1)}
+              sub="years"
+              accent="amber"
+              icon={
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
+            />
+            <MetricCard
+              label="Voter Density"
+              value={headline.voterDensity.toLocaleString()}
+              sub="voters / DM"
+              accent="rose"
+              icon={
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              }
+            />
           </div>
 
           {/* Race distribution pie */}
@@ -298,6 +371,33 @@ export default function AnalyticsDrawer({
             </ResponsiveContainer>
           </Section>
 
+          {/* Contact rate per parliament (sorted desc) */}
+          <Section title="Contact Rate by Parliament" subtitle="Highest → lowest voter reachability">
+            <ResponsiveContainer width="100%" height={170}>
+              <BarChart data={contactData} margin={{ left: -16, right: 8, top: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 8, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" height={50} tickMargin={4} />
+                <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[60, 90]} tickFormatter={(v: number) => `${v}%`} />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  formatter={(v: number) => `${v.toFixed(1)}%`}
+                  labelFormatter={(_l, p) => p?.[0]?.payload?.fullName ?? ''}
+                  contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                />
+                <Bar dataKey="contact" radius={[3, 3, 0, 0]} barSize={12}>
+                  {contactData.map((d, i) => (
+                    <BarCell key={i} fill={d.contact > 80 ? '#10b981' : d.contact > 75 ? '#34d399' : d.contact > 70 ? '#fbbf24' : '#f43f5e'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-2 flex items-center justify-center gap-3 text-[9px] text-slate-500">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> ≥80%</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> 70-80%</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" /> &lt;70%</span>
+            </div>
+          </Section>
+
           <p className="text-[9px] text-slate-400 text-center pt-2 pb-1">
             Aggregates computed client-side from pre-computed voter stats JSON.
           </p>
@@ -324,6 +424,40 @@ function KpiCard({ label, value, accent }: { label: string; value: string; accen
     <div className={`bg-gradient-to-br ${colors[accent]} rounded-lg p-2.5 border text-center`}>
       <div className="text-lg font-extrabold tabular-nums leading-tight">{value}</div>
       <div className="text-[9px] uppercase tracking-wider font-semibold opacity-80 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function MetricCard({
+  label, value, sub, accent, icon,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent: 'emerald' | 'violet' | 'amber' | 'rose';
+  icon?: React.ReactNode;
+}) {
+  const accentMap = {
+    emerald: { ring: 'ring-emerald-200', bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100 text-emerald-600' },
+    violet: { ring: 'ring-violet-200', bg: 'bg-violet-50', text: 'text-violet-700', iconBg: 'bg-violet-100 text-violet-600' },
+    amber: { ring: 'ring-amber-200', bg: 'bg-amber-50', text: 'text-amber-700', iconBg: 'bg-amber-100 text-amber-600' },
+    rose: { ring: 'ring-rose-200', bg: 'bg-rose-50', text: 'text-rose-700', iconBg: 'bg-rose-100 text-rose-600' },
+  };
+  const a = accentMap[accent];
+  return (
+    <div className={`relative ${a.bg} rounded-xl p-2.5 border ${a.ring} ring-1 overflow-hidden hover-lift`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className={`text-base font-extrabold tabular-nums leading-tight ${a.text}`}>{value}</div>
+          <div className="text-[9px] uppercase tracking-wider font-semibold text-slate-500 mt-0.5">{label}</div>
+          {sub && <div className="text-[8px] text-slate-400 mt-0.5">{sub}</div>}
+        </div>
+        {icon && (
+          <div className={`w-7 h-7 rounded-lg ${a.iconBg} flex items-center justify-center flex-shrink-0`}>
+            {icon}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

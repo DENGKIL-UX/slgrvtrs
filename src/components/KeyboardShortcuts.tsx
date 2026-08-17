@@ -16,10 +16,13 @@ const DEFAULT_SHORTCUTS: { key: string; desc: string; group?: string }[] = [
   { key: 'I', desc: 'Toggle AI Insights panel', group: 'Drawers' },
   { key: 'R', desc: 'Toggle Ranking table', group: 'Drawers' },
   { key: 'B', desc: 'Toggle Bookmarks menu', group: 'Drawers' },
+  { key: 'H', desc: 'Toggle Recently Viewed history', group: 'Drawers' },
   { key: 'D', desc: 'Open Data Table explorer', group: 'Drawers' },
+  { key: 'P', desc: 'Capture map as PNG screenshot', group: 'Drawers' },
   { key: 'F', desc: 'Toggle fullscreen map', group: 'View' },
   { key: 'T', desc: 'Toggle Theme (light/dark)', group: 'View' },
   { key: 'S', desc: 'Open Share menu', group: 'View' },
+  { key: 'C', desc: 'Clear current selection', group: 'View' },
   { key: 'Esc', desc: 'Close any open drawer/popup', group: 'View' },
   { key: '?', desc: 'Show this shortcuts overlay', group: 'Help' },
 ];

@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { ParliamentStats, DunStats } from '@/lib/map/join-stats';
+import PasswordDialog from '@/components/PasswordDialog';
 
 interface DataTableViewProps {
   open: boolean;
   onClose: () => void;
   parliamentStats: Record<string, ParliamentStats>;
   dunStats: Record<string, DunStats>;
+  onFlyTo?: (code: string, type: 'parliament' | 'dun') => void;
 }
 
 type Level = 'parliament' | 'dun';
@@ -26,7 +28,7 @@ const COLUMNS = [
   { key: 'contact_pct', label: 'Contact %', sortable: true, fmt: (v: number) => v != null ? `${v.toFixed(1)}%` : '—', align: 'right' as const },
 ];
 
-export default function DataTableView({ open, onClose, parliamentStats, dunStats }: DataTableViewProps) {
+export default function DataTableView({ open, onClose, parliamentStats, dunStats, onFlyTo }: DataTableViewProps) {
   const [level, setLevel] = useState<Level>('parliament');
   const [sortKey, setSortKey] = useState('total_voters');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -59,21 +61,39 @@ export default function DataTableView({ open, onClose, parliamentStats, dunStats
     }
   };
 
+  const [showPwDialog, setShowPwDialog] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Password-protected export via server endpoint
+  const handlePasswordSubmit = useCallback(async (password: string) => {
+    setExportLoading(true);
+    try {
+      // Use the password-protected /api/export/csv endpoint
+      const res = await fetch('/api/export/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, level }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(d.error || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^";]+)"?/);
+      a.href = url;
+      a.download = match ? match[1] : `slgrvtrs_${level}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [level]);
+
   const exportCSV = () => {
-    const headers = COLUMNS.map((c) => c.label);
-    const lines = [headers.join(',')];
-    const esc = (s: string) => /[,\"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    rows.forEach((r: any) => {
-      lines.push(COLUMNS.map((c) => esc(c.fmt(r[c.key]))).join(','));
-    });
-    const csv = lines.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `slgrvtrs_${level}_table.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setShowPwDialog(true);
   };
 
   if (!open) return null;
@@ -149,7 +169,14 @@ export default function DataTableView({ open, onClose, parliamentStats, dunStats
             <tbody>
               {rows.map((r: any, i) => (
                 <tr key={level === 'parliament' ? r.code_parlimen : r.code_dun}
-                  className={`border-t border-slate-100 hover:bg-indigo-50/40 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
+                  className={`border-t border-slate-100 hover:bg-indigo-50/40 transition-colors cursor-pointer group ${i % 2 === 0 ? '' : 'bg-slate-50/30'}`}
+                  onClick={() => {
+                    const code = level === 'parliament' ? r.code_parlimen : r.code_dun;
+                    if (onFlyTo) {
+                      onFlyTo(code, level);
+                      onClose();
+                    }
+                  }}>
                   {COLUMNS.map((col) => {
                     const val = r[col.key];
                     const code = level === 'parliament' ? r.code_parlimen : r.code_dun;
@@ -160,6 +187,13 @@ export default function DataTableView({ open, onClose, parliamentStats, dunStats
                       </td>
                     );
                   })}
+                  <td className="px-2 py-2 w-8 text-center">
+                    {onFlyTo && (
+                      <span className="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Fly to this seat">
+                        <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -180,6 +214,14 @@ export default function DataTableView({ open, onClose, parliamentStats, dunStats
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
       `}</style>
+
+      {/* Password dialog for export */}
+      <PasswordDialog
+        open={showPwDialog}
+        onClose={() => setShowPwDialog(false)}
+        onSubmit={handlePasswordSubmit}
+        description={`Download all ${level === 'parliament' ? '22 parliaments' : '56 DUNs'} as password-protected CSV`}
+      />
     </div>
   );
 }
