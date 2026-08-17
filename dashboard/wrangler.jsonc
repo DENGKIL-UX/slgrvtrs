@@ -20,14 +20,20 @@
     {
       "binding": "DB",
       "database_name": "slgrvtrs-voters",
-      "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb"
+      "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb",
+      // Use the remote D1 in `next dev` so we don't have to re-seed 945 DMs +
+      // 56 DUNs + 22 Parliaments locally. Production deploys ignore this flag.
+      "remote": true
     }
   ],
 
   "r2_buckets": [
     {
       "binding": "TILES",
-      "bucket_name": "slgrvtrs-tiles"
+      "bucket_name": "slgrvtrs-tiles",
+      // Same idea — read xlsx source data and pre-generated voter CSVs from
+      // the real bucket instead of needing to mirror them locally.
+      "remote": true
     }
   ],
 

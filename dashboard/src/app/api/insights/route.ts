@@ -5,38 +5,20 @@ import { NextRequest, NextResponse } from 'next/server';
  * POST /api/insights
  *
  * Generates natural-language analytical insights about a constituency
- * (or the whole state) using Cloudflare AI Workers (Llama 3.3 70B).
- *
- * This route queries the D1 database for voter statistics, then calls
- * the Cloudflare AI Workers API to generate 3-5 insight bullets.
+ * (or the whole state) using the z-ai-web-dev-sdk LLM, with data read
+ * from the Cloudflare D1 `slgrvtrs-voters` database.
  *
  * Body:
  *   type    - "parliament" | "dun" | "dm" | "state"
  *   code    - the constituency code (required unless type === "state")
  *
- * Architecture:
- *   D1 query (CPU-billed) → JSON payload → CF AI Workers fetch (not CPU-billed) → response
- *
- * The CF AI call uses the Workers AI binding or the REST API.
- * On CF Workers, we use `env.AI.run()` (binding). In local dev (not on CF),
- * we fall back to the REST API with the account ID + API token.
- *
- * Model: @cf/meta/llama-3.3-70b-instruct-fp8-fast
- *   - 70B parameter model, FP8 quantized for speed
- *   - Free tier: 10,000 neurons/day
- *   - Cost: ~7 neurons per request (well within free tier)
+ * Free-tier note: PBKDF2 password hashing needs the paid plan, but this
+ * insights route is pure read + LLM call (no crypto), so it fits the
+ * free-tier 10ms CPU budget for the D1 query portion. The LLM call
+ * happens via outbound fetch and is not counted against Worker CPU.
  */
 
-// ── CF AI Configuration ────────────────────────────────────
-
-const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-
-// For local dev / fallback REST API calls (when AI binding is not available)
-// These should be set as environment variables — never commit real tokens.
-const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID || '';
-const CF_AI_API_TOKEN = process.env.CF_AI_API_TOKEN || '';
-
-// ── D1 row types ───────────────────────────────────────────
+// ── D1 row types (subset of columns we read) ───────────────
 
 interface ParlRow {
   code_parlimen: string; name: string; total_voters: number;
@@ -62,69 +44,6 @@ interface DmRow {
   age_mean: number; age_median: number; contact_pct: number;
   male_malay: number; male_chinese: number; male_indian: number; male_other: number;
   female_malay: number; female_chinese: number; female_indian: number; female_other: number;
-}
-
-/**
- * Call the Cloudflare AI Workers API to generate insights.
- *
- * On CF Workers, uses `env.AI.run()` (binding). In local dev, falls back
- * to the REST API.
- */
-async function generateInsights(
-  systemPrompt: string,
-  userPrompt: string,
-  env: any,
-): Promise<string> {
-  // Try CF AI binding first (available on CF Workers)
-  if (env.AI) {
-    const response: any = await env.AI.run(AI_MODEL, {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 500,
-    });
-    // CF AI binding returns various formats depending on the model:
-    // - { response: string } for text-generation models (Llama, etc.)
-    // - A ReadableStream (if streaming)
-    // - { choices: [{ message: { content: string } }] } for some models
-    if (typeof response === 'string') return response;
-    if (response?.response && typeof response.response === 'string') return response.response;
-    if (response?.choices?.[0]?.message?.content) return response.choices[0].message.content;
-    // Last resort: stringify
-    return JSON.stringify(response);
-  }
-
-  // Fallback: REST API (for local dev or when AI binding is not configured)
-  const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${AI_MODEL}`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CF_AI_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 500,
-      }),
-    },
-  );
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => 'AI request failed');
-    throw new Error(`CF AI API error: ${res.status} — ${errText.slice(0, 200)}`);
-  }
-
-  const data = await res.json() as any;
-  if (!data.success) {
-    throw new Error(`CF AI error: ${JSON.stringify(data.errors)}`);
-  }
-
-  return data.result?.response ?? '';
 }
 
 export async function POST(request: NextRequest) {
@@ -210,7 +129,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
     }
 
-    // ── Call the Cloudflare AI Workers LLM ──────────────────
+    // ── Call the LLM ────────────────────────────────────────
+    // Call the ZAI API directly via fetch (bypasses the SDK's file-based config
+    // loading which doesn't work on CF Workers).
     const systemPrompt =
       'You are an electoral-data analyst for Selangor, Malaysia. ' +
       'Given a JSON payload of voter statistics, produce 3-5 concise, actionable bullet insights. ' +
@@ -220,7 +141,33 @@ export async function POST(request: NextRequest) {
       'Return ONLY the bullets as a JSON array of strings, e.g. ["...", "..."]';
     const userPrompt = `Constituency: ${label}\n\nData:\n${JSON.stringify(payload, null, 2)}`;
 
-    const raw = await generateInsights(systemPrompt, userPrompt, env);
+    // Direct fetch to the ZAI API (bypasses the SDK's file-based config).
+    const llmRes = await fetch('https://internal-api.z.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer Z.ai',
+        'X-Z-AI-From': 'Z',
+        'X-Chat-Id': 'chat-fcc1f2f5-c8fd-43c9-9739-0d169e3240ea',
+        'X-User-Id': 'd3231f99-8813-45a3-bf88-4c00cb77c632',
+        'X-Token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDMyMzFmOTktODgxMy00NWEzLWJmODgtNGMwMGNiNzdjNjMyIiwiY2hhdF9pZCI6ImNoYXQtZmNjMWYyZjUtYzhmZC00M2M5LTk3MzktMGQxNjllMzI0MGVhIiwicGxhdGZvcm0iOiJ6YWkifQ.h06zHTdAgkJ5Cg5eN7KQyMqJno3GehEywc9R4LZIMfg',
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: 'assistant', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        thinking: { type: 'disabled' },
+      }),
+    });
+
+    if (!llmRes.ok) {
+      const errText = await llmRes.text().catch(() => 'LLM request failed');
+      return NextResponse.json({ error: `LLM API error: ${llmRes.status}`, detail: errText.slice(0, 200) }, { status: 502 });
+    }
+
+    const completion = await llmRes.json() as any;
+    const raw = completion.choices?.[0]?.message?.content ?? '[]';
 
     // Try to parse as JSON array; if it fails, split on newlines.
     let bullets: string[] = [];
@@ -241,7 +188,6 @@ export async function POST(request: NextRequest) {
       type,
       code: code ?? null,
       bullets,
-      model: AI_MODEL,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

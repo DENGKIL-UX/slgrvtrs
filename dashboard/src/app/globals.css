@@ -384,3 +384,33 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Hide scrollbar on horizontal status bars (still scrollable) */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Subtle scale-in animation for popovers/menus */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-scale-in {
+  animation: scaleIn 0.18s ease-out;
+}
+
+/* Spinner with soft glow */
+.spinner-glow {
+  filter: drop-shadow(0 0 6px currentColor);
+  opacity: 0.9;
+}
+
+/* Soft transition for theme/basemap switches */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}

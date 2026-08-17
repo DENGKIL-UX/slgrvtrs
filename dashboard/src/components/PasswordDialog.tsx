@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -19,14 +19,22 @@ export default function PasswordDialog({ open, onClose, onSubmit, description }:
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus password input when dialog opens
+  // Auto-focus the password input once the dialog is open. State is reset
+  // via `handleClose` below — every close path (cancel button, backdrop
+  // click, successful submit) goes through handleClose so the field is
+  // always clean for the next open.
   useEffect(() => {
-    if (open) {
-      setPassword('');
-      setError('');
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (!open) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(t);
   }, [open]);
+
+  const handleClose = useCallback(() => {
+    setPassword('');
+    setError('');
+    setLoading(false);
+    onClose();
+  }, [onClose]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +44,7 @@ export default function PasswordDialog({ open, onClose, onSubmit, description }:
     try {
       await onSubmit(password);
       setPassword('');
-      onClose();
+      handleClose();
     } catch (err: any) {
       const msg = err?.message || 'Incorrect password';
       setError(msg);
@@ -53,7 +61,7 @@ export default function PasswordDialog({ open, onClose, onSubmit, description }:
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
 
       {/* Dialog */}
       <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden">
@@ -99,7 +107,7 @@ export default function PasswordDialog({ open, onClose, onSubmit, description }:
           <div className="flex gap-2 mt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={loading}
               className="flex-1 py-2.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
             >Cancel</button>

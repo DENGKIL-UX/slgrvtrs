@@ -1,4 +1,14 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Enable Cloudflare bindings (D1, R2, AI) in local `next dev`.
+// MUST run before defining nextConfig. Guarded by NODE_ENV so it never
+// runs during `next build` / CF Pages production builds — the function
+// tries to connect to Cloudflare via getPlatformProxy() which we don't
+// want during a build.
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
 
 const nextConfig: NextConfig = {
   // NO output: 'standalone' — OpenNext handles bundling for Cloudflare Workers
@@ -8,6 +18,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   reactStrictMode: false,
+  // Allow cross-origin access from the z.ai preview host so the in-IDE
+  // "Preview Panel" can fetch Next.js dev resources (chunks, HMR, etc.)
+  allowedDevOrigins: [
+    "preview-chat-fcc1f2f5-c8fd-43c9-9739-0d169e3240ea.space-z.ai",
+    "*.space-z.ai",
+    "localhost:3000",
+  ],
 };
 
 export default nextConfig;

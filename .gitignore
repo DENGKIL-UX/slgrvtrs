@@ -51,3 +51,4 @@ dev.log
 source-data/*.xlsx
 source-data/
 db/custom.db
+upload/

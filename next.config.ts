@@ -2,8 +2,13 @@ import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 // Enable Cloudflare bindings (D1, R2, AI) in local `next dev`.
-// MUST run before defining nextConfig. No-op in production builds.
-initOpenNextCloudflareForDev();
+// MUST run before defining nextConfig. Guarded by NODE_ENV so it never
+// runs during `next build` / CF Pages production builds — the function
+// tries to connect to Cloudflare via getPlatformProxy() which we don't
+// want during a build.
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
 
 const nextConfig: NextConfig = {
   // NO output: 'standalone' — OpenNext handles bundling for Cloudflare Workers

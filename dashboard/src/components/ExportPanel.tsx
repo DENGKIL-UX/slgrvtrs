@@ -1,6 +1,6 @@
-'client';
+'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import PasswordDialog from './PasswordDialog';
 
 // ── Types ──────────────────────────────────────────────────
@@ -83,9 +83,11 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
   }, [passwordSetVersion]);
 
   // Sync filter when drilledParl changes — only apply if current level supports it
+  const lastDrilledRef = useRef<string | null>(null);
   useEffect(() => {
-    if (drilledParl) {
-      // Parliament level has no “by parliament” filter; auto-switch to DUN
+    if (!drilledParl || lastDrilledRef.current === drilledParl) return;
+    lastDrilledRef.current = drilledParl;
+    queueMicrotask(() => {
       if (level === 'parliament') {
         setLevel('dun');
         setFilterMode('parliament');
@@ -94,8 +96,8 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
         setFilterMode('parliament');
         setSelectedCode(drilledParl);
       }
-    }
-  }, [drilledParl]);
+    });
+  }, [drilledParl, level]);
 
   // Build description for the password dialog
   const exportDescription = useCallback(() => {
