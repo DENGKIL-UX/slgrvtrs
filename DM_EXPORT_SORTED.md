@@ -144,9 +144,13 @@ curl -X POST https://slgrvtrs.ritz-analytics.workers.dev/api/export/dm-xlsx \
 | `POST /api/export/csv` | dm | N.01 (dun filter) | ~15-20 |
 | `POST /api/export/dm-xlsx` | dm | all (sorted) | 945 |
 | `POST /api/export/comparison` | comparison | user-selected | 1-3 |
-| `POST /api/export/dm-voters/[dm_code]` | individual voters | per DM | ~4,203 avg |
+| `POST /api/export/dm-voters/[dm_code]` | individual voters | per DM (on-the-fly from D1) | ~4,203 avg |
 
 All endpoints use the same password: `PAStimenang1` (PBKDF2, 10K iterations)
+
+**Note**: The `/api/export/dm-voters/[dm_code]` endpoint generates voter records
+on-the-fly from the D1 database (no R2 pre-generated files needed). It queries
+the DM's gender×race crosstabs and generates synthetic voter records.
 
 ---
 

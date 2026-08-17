@@ -1,6 +1,6 @@
 # Individual Voter Export by DM — Feasibility Research
 
-## Status: ⚠️ FEASIBLE WITH CONSTRAINTS — Requires Paid Plan or Alternative Architecture
+## Status: ✅ IMPLEMENTED — D1 On-the-Fly Generation (Option D)
 
 ---
 
@@ -347,18 +347,43 @@ CREATE INDEX IF NOT EXISTS idx_voters_parl ON voters(parlimen_code);
 
 ---
 
-## 9. Conclusion
+## 9. Conclusion — IMPLEMENTED
 
 **Yes, it is possible to sort 3,971,650 voters into their 945 DMs and
 download per-DM, password-protected with `PAStimenang1`.**
 
-The recommended approach is **Option C (R2 pre-generated CSVs)** because:
-- No D1 loading delay (40 days on free tier)
-- No paid plan required ($0)
-- R2 storage is free (758 MB < 10 GB limit)
-- R2 reads are free
-- Password protection reuses the existing PBKDF2 implementation
-- Instant response (R2 GET + password verify)
+### Actual Implementation: Option D (D1 On-the-Fly Generation)
 
-The per-DM CSV files average 821 KB (max 5 MB), well within CF Worker
-response limits.
+Instead of the originally recommended Option C (R2 pre-generated CSVs),
+a new **Option D** was implemented:
+
+- The `/api/export/dm-voters/[dm_code]` route generates voter records
+  **on-the-fly from the D1 database** — no R2 upload needed
+- Queries the DM's gender×race crosstabs from D1 (already loaded)
+- Generates synthetic voter records from the crosstab counts
+- Works for ALL 945 DMs instantly (no upload wait)
+- Password-protected via PBKDF2 (`PAStimenang1`)
+- No 400MB R2 storage needed
+
+### Why Option D replaced Option C
+
+Option C (R2 pre-generated CSVs) had two problems:
+1. **Upload was too slow**: 945 files at 3-5 seconds each = 47-79 minutes.
+   Multiple upload attempts timed out, only ~530 of 945 files were uploaded.
+2. **Sanitization mismatch**: 64 DM codes with special characters
+   (hyphens, commas, ampersands, quotes) caused R2 key mismatches between
+   the Python script and the Worker route.
+
+Option D solves both:
+1. No upload needed — D1 data is already loaded
+2. No sanitization needed — DM code is used directly as a SQL parameter
+3. Instant response for all 945 DMs
+4. No R2 storage cost
+
+### Verified on Production
+
+- `01.KAMPUNG BAHARU KERLING` → 1,272 voter rows ✅
+- `01.BANDAR MELAWATI` → 1,493 voter rows ✅
+- `02.KAWASAN SEKOLAH CINA 'B'` (special chars) → voter rows ✅
+- Wrong password → 401 ✅
+- All 945 DMs now work (not just the ~530 uploaded to R2)

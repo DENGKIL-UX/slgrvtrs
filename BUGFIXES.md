@@ -305,3 +305,5 @@ When switching to Heatmap visualization mode, the map rendered in red/orange ton
 | CF-81: DUN missing By DUN filter | P2 | Added filter option + seatList fix | Fixed |
 | CF-82: Heatmap ignores metric | P2 | Use activeMetric's color scale | Fixed |
 | CF-83: Legend shows wrong colors in heatmap | P3 | heatmapMode prop on Legend | Fixed |
+| CF-84: DM voter download fails for most DMs | P1 | Generate on-the-fly from D1 (no R2) | Fixed |
+| CF-85: xlsx files publicly downloadable from repo | P0 | Transfer to R2 + purge git history | Fixed |

@@ -35,7 +35,8 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 | Phase 7 | Password-protected CSV export (PBKDF2 + D1 `app_settings`) | **DEPLOYED** | ✅ Password API works |
 | Phase 8 | UI features: dark mode, satellite basemap, heatmap, analytics, ranking, bookmarks, share, tour, data table, toasts, fullscreen | **DEPLOYED** | ✅ All features live |
 | Phase 9 | UX refinements: data table fly-to, layer/metric/share/bookmark toasts, comparison CSV export | **DEPLOYED** | ✅ All features live |
-| Phase 10 | Export & heatmap fixes: password-protected exports, individual voter download, DUN By DUN filter, heatmap metric fix, legend heatmap colors | **DEPLOYED** | ✅ All features live |
+| Phase 10 | Export & heatmap fixes: password-protected exports, individual voter download (on-the-fly from D1), DUN By DUN filter, heatmap metric fix, legend heatmap colors | **DEPLOYED** | ✅ All features live |
+| Phase 11 | Security: xlsx files transferred to R2 (private), git history purged, voter PII no longer public | **DEPLOYED** | ✅ Secure |
 
 ---
 

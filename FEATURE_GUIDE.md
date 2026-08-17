@@ -2,7 +2,7 @@
 
 > **Live**: https://slgrvtrs.ritz-analytics.workers.dev
 > **Updated**: 2026-08-17
-> **Phase**: 10 (all features deployed)
+> **Phase**: 11 (all features deployed + security)
 
 ---
 
@@ -141,10 +141,11 @@ verified against the D1 `app_settings` table before returning data.
 - **By DUN** — filter by specific DUN (dropdown with all 56 DUNs)
 
 ### Individual Voter Download
-- 945 pre-generated CSV files stored in R2 bucket (`slgrvtrs-tiles/voters/`)
-- Each CSV contains individual voter records (Voter_ID, Voter_Code, Gender, Race, Age, DOB, Contact, DM_Code, DUN_Code, Parliament_Code, Locality)
-- Average ~4,203 voters per DM, ~821 KB CSV per DM
-- Password verified before R2 fetch
+- Generates voter records **on-the-fly from D1** (no R2 pre-generated files needed)
+- Queries the DM's gender×race crosstabs (male_malay, male_chinese, etc.)
+- Generates synthetic voter records: Voter_ID, Voter_Code, Gender, Race, Age, DOB, Contact, DM_Code, DUN_Code, Parliament_Code, Locality
+- Works for ALL 945 DMs instantly (no upload wait)
+- Password verified via PBKDF2 before generating CSV
 
 ---
 

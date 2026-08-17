@@ -14,7 +14,7 @@ npm run build:cf   # Build for Cloudflare Workers
 npm run deploy     # Deploy to Cloudflare
 ```
 
-## Features (Phase 1–10)
+## Features (Phase 1–11)
 
 ### Map Visualization
 - **Parliament choropleth** (22 seats) with 10 switchable metrics

@@ -362,6 +362,7 @@ CF-00 (fix next.config.ts) ✅
                                       └── CF-70..76 (Phase 6-8 bugfixes — COMPLETE ✅)
                                       └── CF-77..78 (Phase 9 UX refinements — COMPLETE ✅)
                                             └── CF-79..83 (Phase 10 export + heatmap fixes — COMPLETE ✅)
+                                                  └── CF-84..85 (Phase 11 security — COMPLETE ✅)
 ```
 
 ## Progress Summary
@@ -381,4 +382,5 @@ CF-00 (fix next.config.ts) ✅
 | 8: UI | CF-UI | **DONE** | Dark mode, satellite, heatmap, analytics, ranking, bookmarks, share, tour, data table, toasts, fullscreen, shortcuts, comparison charts, detail card |
 | 6-8 Bugfix | CF-70..76 | **DONE** | Search popup, theme sync, AI on CF, build fix, prod sync, DUNStats, recharts |
 | 9: UX | CF-77..78 | **DONE** | Data table fly-to, layer toggle toast |
-| 10: Export+Heatmap | CF-79..83 | **DONE** | Password-protected exports, individual voter download, DUN By DUN filter, heatmap metric fix, legend heatmap colors |
+| 10: Export+Heatmap | CF-79..83 | **DONE** | Password-protected exports, individual voter download (on-the-fly from D1), DUN By DUN filter, heatmap metric fix, legend heatmap colors |
+| 11: Security | CF-84..85 | **DONE** | DM voter download on-the-fly from D1 (no R2 needed), xlsx transferred to R2 + git history purged |

@@ -230,7 +230,7 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 
 ## Conclusion
 
-**All 10 phases are fully compatible with Cloudflare deployment on the free tier.**
+**All 11 phases are fully compatible with Cloudflare deployment on the free tier.**
 
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
 - Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters
@@ -270,10 +270,20 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 **CF Compatibility**: Uses existing D1 + R2 bindings, no new infrastructure
 **Features**:
 - All exports password-protected with PAStimenang1 (Data Table, Comparison, All DMs, Individual Voters)
-- Individual voter download per DM via R2 (945 pre-generated CSVs)
+- Individual voter download per DM generated on-the-fly from D1 (no R2 upload needed)
 - DUN level "By DUN" filter option added
 - Heatmap uses active metric (not hardcoded total_voters)
 - Legend shows heatmap colors (red-orange) when heatmap mode active
 - New endpoints: `/api/export/dm-xlsx`, `/api/export/comparison`, `/api/export/dm-voters/[dm_code]`
+
+### Phase 11: Security — xlsx Transfer + History Purge
+**Status**: DEPLOYED
+**CF Compatibility**: No CF infrastructure changes
+**Actions**:
+- Transferred 4 source xlsx files (294 MB) from public GitHub repo to private R2 bucket (`slgrvtrs-tiles/source-data/`)
+- Purged all xlsx files from git history using `git filter-branch` (79 commits rewritten)
+- Force-pushed cleaned history to GitHub
+- Voter PII (voter IDs, DOB, contact info) no longer publicly accessible
+- R2 bucket is private — access only via password-protected Worker routes
 
 The `pip-melaka` repo proves the pattern works — same org, same developer, same stack (Next.js 16 + OpenNext + Wrangler + D1), already deployed to Cloudflare.
