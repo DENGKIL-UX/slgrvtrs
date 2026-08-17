@@ -14,7 +14,7 @@ npm run build:cf   # Build for Cloudflare Workers
 npm run deploy     # Deploy to Cloudflare
 ```
 
-## Features (Phase 1–9)
+## Features (Phase 1–10)
 
 ### Map Visualization
 - **Parliament choropleth** (22 seats) with 10 switchable metrics
@@ -63,7 +63,7 @@ npm run deploy     # Deploy to Cloudflare
 | @opennextjs/cloudflare | 1.20.1 | Next.js → CF Workers adapter |
 | Recharts | 2.15 | Analytics + comparison charts |
 
-## API Routes (11 total)
+## API Routes (14 total)
 
 | Route | Method | Description |
 |-------|--------|-------------|
@@ -71,12 +71,17 @@ npm run deploy     # Deploy to Cloudflare
 | `/api/dm/[code]` | GET | Single DM lookup |
 | `/api/dm/search` | GET | DM name autocomplete |
 | `/api/export/csv` | POST | Password-protected CSV export (parliament/dun/dm levels) |
+| `/api/export/dm-xlsx` | POST | All 945 DMs sorted (password-protected) |
+| `/api/export/comparison` | POST | Comparison seats CSV (password-protected) |
+| `/api/export/dm-voters/[dm_code]` | POST | Individual voters per DM from R2 (password-protected) |
 | `/api/geocode` | POST | Geocode cache → Google → Nominatim |
 | `/api/geocode/status` | GET | Geocoding stats |
 | `/api/insights` | POST | AI-powered insights via CF AI Workers (Llama 3.3 70B) |
 | `/api/r2/[...path]` | GET | R2 object proxy for slgrvtrs-tiles |
 | `/api/settings/password` | GET/PUT | Check/set export password hash |
 | `/` | GET | Main dashboard page |
+
+All export endpoints use the same password: `PAStimenang1` (PBKDF2, 10K iterations).
 
 ## Architecture
 

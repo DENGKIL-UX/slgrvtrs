@@ -234,6 +234,55 @@ Toggling Parliament/DUN/DM layers had no visual feedback — users couldn't tell
 
 ---
 
+## Phase 10 Bug Fixes
+
+### CF-79: Exports not password-protected (Data Table + Comparison)
+**Severity**: P1 (security)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+The Data Table Explorer's "Export CSV" and the Compare tab's "Export CSV" buttons were using client-side Blob downloads — no password verification.
+
+**Fix**: Replaced both with server-side password-protected endpoints. Data Table now calls `/api/export/csv` with PasswordDialog. Comparison now calls new `/api/export/comparison` endpoint. Both verify PBKDF2 password hash before returning CSV.
+
+### CF-80: "Download All 945 DMs" and "Download Individual Voters" not showing password dialog
+**Severity**: P1 (UX broken)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+The `allDmMode` and `dmVoterMode` flags weren't being properly reset when switching between download buttons, causing the PasswordDialog to use the wrong handler or not appear.
+
+**Fix**: Each button click handler now explicitly resets the other mode flags before setting its own: `handleExportClick` resets both, `handleAllDmClick` resets `dmVoterMode`, `handleDmVoterClick` resets `allDmMode`.
+
+### CF-81: DUN level missing "By DUN" filter option
+**Severity**: P2 (UX gap)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+When selecting DUN export level, the filter options only had "All DUNs" and "By Parliament" — the "By DUN" option was missing. Users couldn't filter DMs by a specific DUN.
+
+**Fix**: Added `{ value: 'dun', label: 'By DUN' }` to the DUN level filter options. Fixed `seatList` to return `dunOptions` when `filterMode='dun'` at any level.
+
+### CF-82: Heatmap always uses total_voters regardless of selected metric
+**Severity**: P2 (feature broken)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+The heatmap was hardcoded to use `total_voters` as the data property. When switching to other metrics (Malay %, Chinese %, etc.), the heatmap colors stayed the same.
+
+**Fix**: The heatmap now reads the active metric's color scale to determine the correct property name and min/max range. The gradient is interpolated across 5 stops based on the metric's actual value range (not just voter counts).
+
+### CF-83: Legend shows choropleth colors when heatmap mode is active
+**Severity**: P3 (visual mismatch)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+When switching to Heatmap visualization mode, the map rendered in red/orange tones but the legend gradient bar still showed the choropleth color scale (green/blue).
+
+**Fix**: Added `heatmapMode` prop to the Legend component. When true: shows red-orange gradient bar matching the heatmap colors, a "HEATMAP" badge, rose accent bar, and rose/red Low/High indicators. MapDashboard passes `heatmapMode={vizMode === 'heatmap'}`.
+
+---
+
 ## Updated Summary
 
 | Bug | Severity | Fix Type | Status |
@@ -251,3 +300,8 @@ Toggling Parliament/DUN/DM layers had no visual feedback — users couldn't tell
 | CF-76: Recharts XAxis | P1 | Props moved to XAxis | Fixed |
 | CF-77: Data table fly-to | P2 | onFlyTo prop + row click | Fixed |
 | CF-78: Layer toggle toast | P3 | Toast in toggleLayer | Fixed |
+| CF-79: Exports not password-protected | P1 | Server-side endpoints + PBKDF2 | Fixed |
+| CF-80: Password dialog not showing | P1 | Reset mode flags on click | Fixed |
+| CF-81: DUN missing By DUN filter | P2 | Added filter option + seatList fix | Fixed |
+| CF-82: Heatmap ignores metric | P2 | Use activeMetric's color scale | Fixed |
+| CF-83: Legend shows wrong colors in heatmap | P3 | heatmapMode prop on Legend | Fixed |

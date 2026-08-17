@@ -1,8 +1,8 @@
 # SLGRVTRS — Feature Guide
 
-> **Live**: https://slgrvtrs.ritz-analytics.workers.dev  
-> **Updated**: 2026-08-17  
-> **Phase**: 9 (all features deployed)
+> **Live**: https://slgrvtrs.ritz-analytics.workers.dev
+> **Updated**: 2026-08-17
+> **Phase**: 10 (all features deployed)
 
 ---
 
@@ -15,7 +15,7 @@
 
 ### Visualization Modes
 - **Choropleth** (default) — standard color scale based on the active metric
-- **Heatmap** — red-orange gradient (light beige → orange → red → dark red) based on total_voters, for both parliament and DUN layers
+- **Heatmap** — red-orange gradient (light beige → orange → red → dark red) based on the **active metric** (not just total_voters), for both parliament and DUN layers. Legend shows heatmap colors with a "HEATMAP" badge when active.
 
 ### Basemaps
 - **Light** — soft blue-gray background (#f0f4f8)
@@ -111,14 +111,40 @@ Full dark mode support across:
 
 ---
 
-## Password-Protected CSV Export
+## Password-Protected Exports (All password: `PAStimenang1`)
 
-- **PBKDF2** password hashing (10K iterations via WebCrypto)
-- D1 `app_settings` table for password hash storage
-- Export levels: Parliament (22), DUN (56), DM (945)
-- Filter by parliament code or DUN code
-- Settings gear icon for password management (set/change)
-- Test password: `PAStimenang1`
+All download endpoints use PBKDF2 password hashing (10K iterations via WebCrypto),
+verified against the D1 `app_settings` table before returning data.
+
+### Export Endpoints
+
+| Endpoint | Description | Rows |
+|----------|-------------|------|
+| `POST /api/export/csv` | Parliament/DUN/DM aggregated stats (with filters) | 22 / 56 / 945 |
+| `POST /api/export/dm-xlsx` | All 945 DMs sorted by DM code | 945 |
+| `POST /api/export/comparison` | User-selected comparison seats (up to 3) | 1-3 |
+| `POST /api/export/dm-voters/[dm_code]` | Individual voters per DM (from R2) | ~4,203 avg |
+
+### UI Download Buttons
+
+| Button | Endpoint | Password |
+|--------|----------|----------|
+| Download CSV (green) | `/api/export/csv` | PAStimenang1 |
+| Download All 945 DMs (Sorted) (rose) | `/api/export/dm-xlsx` | PAStimenang1 |
+| Download Individual Voters (dark red) | `/api/export/dm-voters/[dm_code]` | PAStimenang1 |
+| Export CSV in Data Table (green) | `/api/export/csv` | PAStimenang1 |
+| Export CSV in Compare tab (green) | `/api/export/comparison` | PAStimenang1 |
+
+### DUN Filter Options
+- **All DUNs (56)** — download all DUNs
+- **By Parliament** — filter DUNs by parent parliament
+- **By DUN** — filter by specific DUN (dropdown with all 56 DUNs)
+
+### Individual Voter Download
+- 945 pre-generated CSV files stored in R2 bucket (`slgrvtrs-tiles/voters/`)
+- Each CSV contains individual voter records (Voter_ID, Voter_Code, Gender, Race, Age, DOB, Contact, DM_Code, DUN_Code, Parliament_Code, Locality)
+- Average ~4,203 voters per DM, ~821 KB CSV per DM
+- Password verified before R2 fetch
 
 ---
 

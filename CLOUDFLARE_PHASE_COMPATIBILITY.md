@@ -230,7 +230,7 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 
 ## Conclusion
 
-**All 9 phases are fully compatible with Cloudflare deployment on the free tier.**
+**All 10 phases are fully compatible with Cloudflare deployment on the free tier.**
 
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
 - Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters
@@ -261,8 +261,19 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 **Features**: Dark mode (sidebar + popups + drawers), ESRI satellite basemap, heatmap visualization, fullscreen toggle, constituency detail card with mini-stats, toast notifications on all key actions
 
 ### Phase 9: UX Refinements
-**Status**: DEPLOYED  
-**CF Compatibility**: All client-side  
+**Status**: DEPLOYED
+**CF Compatibility**: All client-side
 **Features**: Data table row click → fly-to constituency + auto-popup, layer toggle toast notifications, metric switch toast, shimmer loading skeleton
+
+### Phase 10: Export & Heatmap Fixes
+**Status**: DEPLOYED
+**CF Compatibility**: Uses existing D1 + R2 bindings, no new infrastructure
+**Features**:
+- All exports password-protected with PAStimenang1 (Data Table, Comparison, All DMs, Individual Voters)
+- Individual voter download per DM via R2 (945 pre-generated CSVs)
+- DUN level "By DUN" filter option added
+- Heatmap uses active metric (not hardcoded total_voters)
+- Legend shows heatmap colors (red-orange) when heatmap mode active
+- New endpoints: `/api/export/dm-xlsx`, `/api/export/comparison`, `/api/export/dm-voters/[dm_code]`
 
 The `pip-melaka` repo proves the pattern works — same org, same developer, same stack (Next.js 16 + OpenNext + Wrangler + D1), already deployed to Cloudflare.

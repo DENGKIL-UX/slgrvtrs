@@ -35,6 +35,7 @@ An interactive web map dashboard that visualizes Selangor's voter registry data 
 | Phase 7 | Password-protected CSV export (PBKDF2 + D1 `app_settings`) | **DEPLOYED** | ✅ Password API works |
 | Phase 8 | UI features: dark mode, satellite basemap, heatmap, analytics, ranking, bookmarks, share, tour, data table, toasts, fullscreen | **DEPLOYED** | ✅ All features live |
 | Phase 9 | UX refinements: data table fly-to, layer/metric/share/bookmark toasts, comparison CSV export | **DEPLOYED** | ✅ All features live |
+| Phase 10 | Export & heatmap fixes: password-protected exports, individual voter download, DUN By DUN filter, heatmap metric fix, legend heatmap colors | **DEPLOYED** | ✅ All features live |
 
 ---
 
@@ -670,6 +671,15 @@ See `CLOUDFLARE_DEPLOYMENT.md` for full details.
 - [x] **Comparison toasts** — "Added X to comparison" / "Comparison full" / "Already in comparison"
 - [x] **Comparison CSV export** — client-side blob download of comparison seats
 - [x] **Fullscreen toast** — "Fullscreen map" / "Exited fullscreen"
+
+### Phase 10: Export & Heatmap Fixes — COMPLETE ✅
+- [x] **All exports password-protected** — Data Table + Comparison now use server-side PBKDF2 verification (was client-side Blob)
+- [x] **Individual voter download per DM** — 945 pre-generated CSVs in R2, password-protected via `/api/export/dm-voters/[dm_code]`
+- [x] **Download All 945 DMs (Sorted)** — password-protected via `/api/export/dm-xlsx`
+- [x] **Comparison CSV export** — password-protected via `/api/export/comparison`
+- [x] **DUN level "By DUN" filter** — added missing filter option + seatList fix
+- [x] **Heatmap uses active metric** — no longer hardcoded to total_voters; reads color scale stops for correct property + range
+- [x] **Legend heatmap colors** — shows red-orange gradient + "HEATMAP" badge when heatmap mode active
 
 ---
 
