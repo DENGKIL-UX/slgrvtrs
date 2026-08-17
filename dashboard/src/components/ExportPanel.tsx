@@ -143,6 +143,9 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
       setTimeout(() => setToast(null), 4000);
       return;
     }
+    // Reset special modes — this is a regular CSV export
+    setAllDmMode(false);
+    setDmVoterMode(false);
     setShowPwDialog(true);
   };
 
@@ -177,9 +180,9 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
       setTimeout(() => setToast(null), 4000);
       return;
     }
-    // Reuse the password dialog with a different handler
+    // Reset other special modes
+    setDmVoterMode(false);
     setShowPwDialog(true);
-    // Override the onSubmit temporarily by setting a flag
     setAllDmMode(true);
   };
 
@@ -222,6 +225,8 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
       setTimeout(() => setToast(null), 3000);
       return;
     }
+    // Reset other special modes
+    setAllDmMode(false);
     setShowPwDialog(true);
     setDmVoterMode(true);
   };
@@ -235,6 +240,7 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
         ? [
             { value: 'all', label: 'All DUNs (56)' },
             { value: 'parliament', label: 'By Parliament' },
+            { value: 'dun', label: 'By DUN' },
           ]
         : [
             { value: 'all', label: 'All DMs (945)' },
@@ -242,7 +248,7 @@ export default function ExportPanel({ drilledParl, passwordSetVersion }: ExportP
             { value: 'dun', label: 'By DUN' },
           ];
 
-  const seatList = filterMode === 'dun' ? dunOptions : parlOptions;
+  const seatList = filterMode === 'dun' ? dunOptions : filterMode === 'parliament' ? parlOptions : dunOptions;
 
   return (
     <div className="space-y-3">
