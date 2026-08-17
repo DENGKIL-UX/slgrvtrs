@@ -132,3 +132,44 @@ Stage Summary:
 - Next step: push to Git, then create the 15-min recurring webDevReview
   cron job as instructed.
 
+
+---
+Task ID: 2-cf-deploy-fix
+Agent: main
+Task: Fix the CF Pages deployment — new features (Recently Viewed, Screenshot,
+analytics, footer, status bar) were not appearing at the deployed URL
+https://slgrvtrs.ritz-analytics.workers.dev/ even though the build succeeded.
+
+Work Log:
+- Diagnosed root cause: CF Pages build settings use `dashboard/` as the
+  Root directory (confirmed in build log: "App directory: /opt/buildhome/repo/dashboard").
+  All Phase 12 enhancements were committed only to the repo root `src/` —
+  the `dashboard/src/` copy was stale, so the deployed worker didn't have
+  any of the new features.
+- Synced ALL changed files from root → dashboard/:
+  - 2 new components: RecentlyViewed.tsx, ScreenshotButton.tsx
+  - 6 updated components: AnalyticsDrawer, KeyboardShortcuts, PasswordDialog,
+    ExportPanel, MapDashboard, MapDashboardClient
+  - 2 app files: globals.css, api/insights/route.ts
+  - 4 config files: next.config.ts, wrangler.jsonc, package.json, .gitignore
+- Also hardened `initOpenNextCloudflareForDev()` call in next.config.ts
+  with a `process.env.NODE_ENV === "development"` guard. The function
+  tries to connect to Cloudflare via `getPlatformProxy()` which could
+  hang or fail during a `next build` / CF Pages production build. The
+  guard ensures it only runs in `next dev`.
+- Verified local dev server still works after the NODE_ENV guard:
+  - GET / → 200
+  - GET /api/dm → 200 (remote D1 still works)
+  - GET /api/settings/password → 200
+- Lint: 0 errors.
+- Committed as `5b584d7` and pushed to origin/main.
+- CF Pages should auto-trigger a new build from this commit.
+
+Stage Summary:
+- The dashboard/ folder is now fully in sync with the repo root.
+- The NODE_ENV guard prevents potential build-time issues with
+  initOpenNextCloudflareForDev().
+- Next step: verify the CF build completes and the new features appear
+  at https://slgrvtrs.ritz-analytics.workers.dev/ after the build finishes
+  (~2 minutes).
+
