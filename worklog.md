@@ -173,3 +173,48 @@ Stage Summary:
   at https://slgrvtrs.ritz-analytics.workers.dev/ after the build finishes
   (~2 minutes).
 
+
+---
+Task ID: 3-cf-build-lockfile-fix
+Agent: main
+Task: Fix the CF Pages build failure caused by package.json / package-lock.json
+desync in the dashboard/ folder.
+
+Work Log:
+- Root cause: commit 5b584d7 copied the root package.json to dashboard/,
+  which bumped @opennextjs/cloudflare from ^1.20.1 to ^1.20.2. But the
+  dashboard's package-lock.json was generated with 1.20.1, so `npm ci`
+  (which CF Pages uses) failed with:
+    "lock file's @opennextjs/cloudflare@1.20.1 does not satisfy
+     @opennextjs/cloudflare@1.20.2"
+  This affected ~40 transitive @smithy/* dependencies too.
+- Fix: reverted dashboard/package.json's @opennextjs/cloudflare version
+  back to ^1.20.1 (the version the existing lockfile was generated with).
+  Did NOT touch the source code — all Phase 12 features (RecentlyViewed,
+  ScreenshotButton, AnalyticsDrawer, MapDashboard, etc.) remain in place.
+- Verified locally in dashboard/ folder:
+  - `npm ci --progress=false` → exit 0 (success)
+  - `npm run build:cf` → "OpenNext build complete" + "Worker saved in
+    .open-next/worker.js"
+  - `npx @opennextjs/cloudflare deploy` → deployed to
+    https://slgrvtrs.ritz-analytics.workers.dev
+    Version ID: cd193808-adf5-473a-8002-bf96b6fc75a5
+- Verified deployed site via agent-browser:
+  - LIVE DATA badge ✅
+  - Sources → link ✅
+  - v2.7 · Phase 11 · 0/3 compare · PDB ✅
+  - Recent button (clock icon) + History sublabel ✅
+  - Screenshot map tooltip ✅
+  - Bottom status bar (zoom + view + metric) ✅
+- Committed as 7ae6811 and pushed to origin/main.
+- CF Pages should now auto-build successfully from this commit.
+
+Stage Summary:
+- The dashboard/package.json is now back in sync with its lockfile.
+- All Phase 12 features are live on the deployed site.
+- Lesson learned: when syncing files root → dashboard/, NEVER copy
+  package.json or package-lock.json — the two folders have independent
+  dependency trees. Only sync source code (src/), config files that
+  don't affect npm (next.config.ts, wrangler.jsonc, tsconfig.json),
+  and CSS.
+
