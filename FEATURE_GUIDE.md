@@ -2,7 +2,7 @@
 
 > **Live**: https://slgrvtrs.ritz-analytics.workers.dev
 > **Updated**: 2026-08-17
-> **Phase**: 11 (all features deployed + security)
+> **Phase**: 12 (Recently Viewed + Screenshot + analytics polish + CF dev hardening)
 
 ---
 
@@ -51,11 +51,25 @@ Full dark mode support across:
 - Fly-to on click, remove with trash icon
 - Toast notifications on save/remove/duplicate
 
+### Recently Viewed (Phase 12)
+- Pop-up panel showing the last 8 visited parliament/DUN/DM seats
+- Persisted to localStorage under `slgrvtrs:recent`
+- Cross-component updates via `slgrvtrs:recent-updated` CustomEvent
+- Every `selectSeat()` call (parliament/DUN/DM click, search result, ranking row, data table row) pushes into history
+- Toolbar button (clock icon, violet→fuchsia gradient) — press `H` to toggle
+- Click a recent seat to fly back to it on the map
+
 ### Shareable URLs
 - Encodes map center, zoom, active metric, and drilled parliament into URL hash
 - `#m=total_voters&lng=101.5862&lat=3.2328&z=10.0&p=P.106`
 - Restores view on page load (flyTo + metric + drill-down)
 - Copies to clipboard with toast notification
+
+### Screenshot Map (Phase 12)
+- Captures the MapLibre WebGL canvas as a timestamped PNG download
+- 2D-canvas fallback for canvases created without `preserveDrawingBuffer: true`
+- Toolbar button (camera icon) — press `P` to trigger via global `slgrvtrs:screenshot` event
+- Works in both light and dark themes
 
 ### Fullscreen Map
 - Toggle button next to sidebar toggle (top-left)
@@ -67,12 +81,14 @@ Full dark mode support across:
 ## Data & Analytics
 
 ### Analytics Drawer
+- 4 voter-weighted MetricCards (Total Voters, Avg Contact %, Avg Mean Age, Voter Density) with colored icons + sub-labels
 - 3 KPI cards (Parliaments, DUNs, DMs)
 - Ethnic distribution donut (voter-weighted)
 - Gender split donut
 - Top 5 / Bottom 5 parliaments by active metric (horizontal bars)
 - Mean age distribution (ascending bar chart)
 - DUN seats per parliament (bar chart)
+- **Contact Rate by Parliament** bar chart with 3-tier color legend (≥80% green, 70–80% amber, <70% rose)
 
 ### AI Insights
 - **Powered by**: Cloudflare AI Workers (Llama 3.3 70B, FP8 quantized)
@@ -171,10 +187,13 @@ Press `?` to open the shortcuts overlay:
 | `I` | Toggle AI Insights panel | Drawers |
 | `R` | Toggle Ranking table | Drawers |
 | `B` | Toggle Bookmarks menu | Drawers |
+| `H` | Toggle Recently Viewed history | Drawers |
 | `D` | Open Data Table explorer | Drawers |
+| `P` | Capture map as PNG screenshot | Drawers |
 | `F` | Toggle fullscreen map | View |
 | `T` | Toggle theme (light/dark) | View |
 | `S` | Open Share menu | View |
+| `C` | Clear current selection | View |
 | `Esc` | Close any open drawer/popup | View |
 | `?` | Show shortcuts overlay | Help |
 
@@ -186,10 +205,30 @@ Press `?` to open the shortcuts overlay:
 - **Warning** (amber ⚠) — "Comparison is full (max 3 seats)"
 - **Info** (blue ℹ) — "Parliament layer on/off", "DUN layer on/off", "DM Bubbles layer on/off"
 
-### Loading State
-- Enhanced spinner (w-12 h-12) with pulsing inner circle
+### Loading State (Phase 12 — dark-mode aware)
+- Glowing spinner (`.spinner-glow` drop-shadow + pulse)
+- Headline stats under the spinner: "3,971,650 voters · 22 parliaments · 945 DMs"
+- Gradient background with `dark:` variants so the loading screen matches the active theme
 - Shimmer skeleton bars (3 lines, varying widths)
 - "Loading Selangor Voter Map" + "Loading boundaries & statistics…"
+
+### Sidebar Footer (Phase 12)
+- **LIVE DATA** badge with pulse animation
+- **Sources →** link that opens the provenance panel
+- Version + comparison/layer status indicator (`v2.7 · Phase 12 · 0/3 compare · PDB`)
+- Dark-mode aware
+
+### Bottom Status Bar (Phase 12)
+- Replaces the small zoom indicator on the map
+- Shows zoom level, view mode (Parliament/DUN), active metric, current selection code, and comparison seat count
+- Truncates gracefully on mobile (`hidden sm:block` on the metric segment)
+- Uses `.no-scrollbar` so horizontal scroll doesn't show a scrollbar
+
+### CSS Utilities (Phase 12)
+- `.no-scrollbar` — hide scrollbar on horizontal status bars
+- `.animate-scale-in` — subtle scale-in animation for popovers
+- `.spinner-glow` — drop-shadow glow for spinners
+- `.theme-transition` — smooth color transition for theme switches
 
 ### Responsive Design
 - Mobile sidebar auto-collapse (375px tested)
@@ -199,7 +238,7 @@ Press `?` to open the shortcuts overlay:
 
 ---
 
-## Floating Toolbar (8 buttons)
+## Floating Toolbar (10 buttons)
 
 | # | Button | Feature | Shortcut |
 |---|--------|---------|----------|
@@ -207,9 +246,11 @@ Press `?` to open the shortcuts overlay:
 | 2 | 🧠 | AI Insights | I |
 | 3 | 📋 | Ranking table | R |
 | 4 | 🔖 | Bookmarks menu | B |
-| 5 | 📄 | Data Table explorer | D |
-| 6 | 🔗 | Share view | S |
-| 7 | ☀️/🌙 | Theme & basemap toggle | T |
+| 5 | 🕐 | Recently Viewed history | H |
+| 6 | 📄 | Data Table explorer | D |
+| 7 | 📸 | Screenshot map (PNG) | P |
+| 8 | 🔗 | Share view | S |
+| 9 | ☀️/🌙 | Theme & basemap toggle | T |
 | — | ❓ | Keyboard shortcuts | ? |
 
-Plus: Fullscreen toggle (F) and Sidebar toggle on the left side.
+Plus: Fullscreen toggle (F) and Sidebar toggle on the left side. Clear-selection shortcut (C) has no toolbar button — it is triggered from the keyboard or the Constituency Detail Card's ✕ button.

@@ -1,6 +1,6 @@
 # Cloudflare Build Failure — Root Cause Analysis & Fix
 
-## Status: ✅ FIXED (commit on `feat/root-level-cf-build` branch)
+## Status: ✅ FIXED (Phase 12 — dashboard/ + root kept in sync; CI green)
 
 ---
 
@@ -201,3 +201,173 @@ wrangler bindings) is preserved unchanged.
 The `feat/root-level-cf-build` branch contains the fix and has been verified
 locally with `npx @opennextjs/cloudflare build` — it produces a clean
 `.open-next/worker.js` with all 11 routes.
+
+---
+
+## 9. Phase 12 Updates (2026-08-17)
+
+The original fix (§1–8) restructured the repo so the Next.js + OpenNext app
+lives at the **repo root** for `next dev`. CF Pages, however, is configured to
+build from the **`dashboard/` subdirectory** (Root=`dashboard`). This means the
+repo now has **two parallel copies** of the dashboard source:
+
+| Folder | Used by | Purpose |
+|--------|---------|--------|
+| `/` (repo root) | `next dev` (z.ai preview, local dev) | Live editing with remote D1/R2/AI bindings via `initOpenNextCloudflareForDev()` |
+| `/dashboard` | CF Pages production build | Static build → OpenNext Worker bundle deployed to `slgrvtrs.ritz-analytics.workers.dev` |
+
+Both copies must stay byte-for-byte in sync for `src/`, `public/`, `migrations/`,
+and shared config files (`next.config.ts`, `wrangler.jsonc`, `tsconfig.json`,
+`open-next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`,
+`eslint.config.mjs`, `globals.css`).
+
+### 9.1 NEVER copy `package.json` or `package-lock.json` (CF-89)
+
+The root and `dashboard/` folders have **independent dependency trees**.
+Phase 12 commit `5b584d7` accidentally copied the root `package.json` to
+`dashboard/`, bumping `@opennextjs/cloudflare` from `^1.20.1` to `^1.20.2`.
+But `dashboard/package-lock.json` had been generated with `1.20.1`, so CF
+Pages' `npm ci` failed with:
+
+```
+npm error: lock file's @opennextjs/cloudflare@1.20.1 does not satisfy
+@opennextjs/cloudflare@1.20.2
+```
+
+This affected ~40 transitive `@smithy/*` dependencies.
+
+**Rule**: when syncing files root → `dashboard/`, NEVER copy `package.json` or
+`package-lock.json`. The two folders may legitimately have different
+`@opennextjs/cloudflare` minor versions if the lockfiles were generated at
+different times.
+
+### 9.2 `tsconfig.json` excludes `skills/`, `scripts/`, `analysis/` (CF-90)
+
+The repo-root `tsconfig.json` was type-checking every `**/*.ts` file under
+the repo, including the `skills/` directory (third-party skill scripts),
+`scripts/` (one-off Python helper scripts), and `analysis/`. Several of
+these files had type errors that broke `npx tsc --noEmit` and therefore
+the CF Pages build.
+
+**Fix**:
+
+```jsonc
+"exclude": [
+  "node_modules",
+  "skills",
+  "scripts",
+  "analysis",
+  "dashboard"
+]
+```
+
+Note that `dashboard` is also excluded — the root tsconfig only checks the
+root `src/`. The `dashboard/` folder has its own `tsconfig.json` (with the
+same content) which CF Pages uses.
+
+### 9.3 `initOpenNextCloudflareForDev()` with `NODE_ENV` guard (CF-91)
+
+`next dev` calls API routes that use `getCloudflareContext()`, which in turn
+requires `initOpenNextCloudflareForDev()` to be called once during Next.js
+boot. Without it, every API route returns HTTP 500:
+
+```
+getCloudflareContext has been called without having called
+initOpenNextCloudflareForDev
+```
+
+But calling the init unconditionally breaks `next build` / CF Pages — the
+function tries to connect to Cloudflare via `getPlatformProxy()` which is
+not appropriate during a production build.
+
+**Fix** in `next.config.ts`:
+
+```typescript
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
+```
+
+The init MUST run before `nextConfig` is defined.
+
+### 9.4 `allowedDevOrigins` for the z.ai preview host (CF-92)
+
+Next.js 16 introduced an `allowedDevOrigins` guard that rejects cross-origin
+requests from unknown preview hosts. The z.ai in-IDE preview panel runs at
+`preview-chat-fcc1f2f5-…space-z.ai`, so the dev server was blocking chunk
+loads + HMR socket connections to that host.
+
+**Fix** in `next.config.ts`:
+
+```typescript
+const nextConfig: NextConfig = {
+  // …
+  allowedDevOrigins: [
+    "preview-chat-fcc1f2f5-c8fd-43c9-9739-0d169e3240ea.space-z.ai",
+    "*.space-z.ai",
+    "localhost:3000",
+  ],
+};
+```
+
+The wildcard `*.space-z.ai` covers future preview-panel hostnames without
+needing to update the config each time the preview ID changes.
+
+### 9.5 `remote: true` on D1 + R2 bindings
+
+`wrangler.jsonc` sets `"remote": true` on the D1 and R2 bindings so that
+`next dev` reads from the **production-shape remote D1/R2** rather than a
+local mini-clone that would need to be re-seeded with 945 DMs + 56 DUNs +
+22 Parliaments. Production deploys ignore this flag — they always use the
+remote bindings.
+
+```jsonc
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "slgrvtrs-voters",
+    "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb",
+    "remote": true
+  }
+],
+"r2_buckets": [
+  {
+    "binding": "TILES",
+    "bucket_name": "slgrvtrs-tiles",
+    "remote": true
+  }
+]
+```
+
+Local dev must export `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` so
+`getPlatformProxy()` can authenticate to the remote D1/R2/AI bindings.
+
+### 9.6 Sync checklist (root → `dashboard/`)
+
+After any change to dashboard source or shared config, sync the changed
+files from `/` to `/dashboard/`. The minimal checklist:
+
+1. New / modified components under `src/components/` and `src/components/map/`
+2. Modified API routes under `src/app/api/`
+3. Modified `src/app/globals.css`, `src/app/page.tsx`, `src/app/layout.tsx`
+4. Modified `src/lib/**` (auth, csv, map helpers)
+5. Shared config: `next.config.ts`, `wrangler.jsonc`, `tsconfig.json`,
+   `open-next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`,
+   `eslint.config.mjs`
+6. New `public/` assets (GeoJSON, stats JSON, MapLibre workers)
+7. New `migrations/*.sql`
+
+**Never sync**: `package.json`, `package-lock.json`, `.dev.vars`, `dev.log`,
+`tool-results/`, `db/custom.db`. These have folder-specific lifecycles.
+
+### 9.7 Verification (Phase 12)
+
+- ✅ `npm ci` in `dashboard/` succeeds with `@opennextjs/cloudflare@^1.20.1`
+- ✅ `npm run build:cf` produces `.open-next/worker.js`
+- ✅ `npx @opennextjs/cloudflare deploy` succeeds
+- ✅ Deployed site shows Phase 12 features (LIVE DATA badge, Recently Viewed,
+  Screenshot button, bottom status bar, dark-mode loading screen)
+- ✅ `next dev` (root folder) serves API routes without 500s
+- ✅ z.ai preview panel loads chunks + HMR without origin errors

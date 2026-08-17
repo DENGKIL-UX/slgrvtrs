@@ -307,3 +307,116 @@ When switching to Heatmap visualization mode, the map rendered in red/orange ton
 | CF-83: Legend shows wrong colors in heatmap | P3 | heatmapMode prop on Legend | Fixed |
 | CF-84: DM voter download fails for most DMs | P1 | Generate on-the-fly from D1 (no R2) | Fixed |
 | CF-85: xlsx files publicly downloadable from repo | P0 | Transfer to R2 + purge git history | Fixed |
+
+---
+
+## Phase 12 Bug Fixes
+
+### CF-86: React 19 "Cannot update a component while rendering a different component"
+**Severity**: P2 (console warning, no functional break)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+`addToComparison()` was calling `toast()` inside the `setComparisonList(prev => …)` updater. React 19 now warns when this pattern causes a different component (`ToastProvider`) to update during another component's (`MapDashboard`) render phase.
+
+**Fix**: Snapshot the comparison list via a `comparisonListRef` (`useRef`). The `addToComparison` handler reads the ref synchronously, decides the toast message (success / duplicate / full) **outside** the updater, then calls `setComparisonList` with a pure functional update that only returns the new array — no side effects.
+
+### CF-87: ESLint errors (setState-in-effect) in PasswordDialog + RecentlyViewed
+**Severity**: P2 (lint errors)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+Both `PasswordDialog.tsx` and `RecentlyViewed.tsx` called `setState` directly inside a `useEffect`, which `eslint-plugin-react-hooks` flags as a state-update-in-effect violation.
+
+**Fix**:
+- `PasswordDialog.tsx` — moved the state reset out of the effect and into a wrapped `handleClose` callback invoked from the close button.
+- `RecentlyViewed.tsx` — moved the refresh into a `queueMicrotask` so it doesn't trigger a synchronous cascading render.
+
+### CF-88: avgContact calculation in AnalyticsDrawer was off by 100×
+**Severity**: P1 (analytics correctness)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+`avgContact` was being computed as a fraction (0.6953) but displayed as a percentage (`"0.8%"`). The cause was a double `/100` — once when averaging and again when formatting.
+
+**Fix**: Removed the extra `/100` from the formatting path. The drawer now correctly shows ~76.8% Avg Contact % in the new voter-weighted MetricCard.
+
+### CF-89: CF Pages build failure — package.json/lockfile desync in dashboard/
+**Severity**: P0 (build broken)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+Commit `5b584d7` copied the root `package.json` to `dashboard/`, which bumped `@opennextjs/cloudflare` from `^1.20.1` to `^1.20.2`. But `dashboard/package-lock.json` was generated with `1.20.1`, so CF Pages' `npm ci` failed with:
+```
+lock file's @opennextjs/cloudflare@1.20.1 does not satisfy
+@opennextjs/cloudflare@1.20.2
+```
+This affected ~40 transitive `@smithy/*` dependencies.
+
+**Fix**: Reverted `dashboard/package.json`'s `@opennextjs/cloudflare` version back to `^1.20.1` (the version the existing lockfile was generated with). Did NOT touch the source code — all Phase 12 features (RecentlyViewed, ScreenshotButton, AnalyticsDrawer, MapDashboard, etc.) remained in place.
+
+**Lesson**: when syncing files root → dashboard/, NEVER copy `package.json` or `package-lock.json` — the two folders have independent dependency trees. Only sync source code (`src/`), non-npm config (`next.config.ts`, `wrangler.jsonc`, `tsconfig.json`), and CSS.
+
+### CF-90: TypeScript build failure — skills/ directory contained .ts files with type errors
+**Severity**: P1 (build broken)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+The repo-root `tsconfig.json` was type-checking every `**/*.ts` file under the repo, including `skills/`, `scripts/`, and `analysis/` — which contained third-party skill scripts with type errors unrelated to the dashboard.
+
+**Fix**: Added `skills`, `scripts`, and `analysis` to the `exclude` array in `tsconfig.json`. Now `npx tsc --noEmit` only checks the dashboard source under `src/`.
+
+### CF-91: Dev server 500 errors — `initOpenNextCloudflareForDev()` missing
+**Severity**: P0 (dev broken)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+Every API route returned HTTP 500 in `next dev` with:
+```
+getCloudflareContext has been called without having called initOpenNextCloudflareForDev
+```
+
+**Fix**: Imported `initOpenNextCloudflareForDev` from `@opennextjs/cloudflare` in `next.config.ts` and called it before `nextConfig` is defined. Guarded by `process.env.NODE_ENV === "development"` so it never runs during `next build` / CF Pages production builds — the function tries to connect to Cloudflare via `getPlatformProxy()` which we don't want during a build.
+
+### CF-92: Preview host blocked by Next.js `allowedDevOrigins`
+**Severity**: P2 (dev broken in z.ai preview)  
+**Status**: Fixed  
+**Date**: 2026-08-17
+
+Even after CF-91, `next dev` blocked cross-origin requests from the in-IDE preview host `preview-chat-fcc1f2f5-…space-z.ai` (Next.js 16's new `allowedDevOrigins` guard rejects unknown preview hosts).
+
+**Fix**: Added the explicit preview hostname plus `*.space-z.ai` and `localhost:3000` to the `allowedDevOrigins` array in `next.config.ts`. Dev server now serves chunks + HMR to the preview panel without errors.
+
+---
+
+## Updated Summary (incl. Phase 12)
+
+| Bug | Severity | Fix Type | Status |
+|-----|----------|----------|--------|
+| CF-60: Compare button | P0 | HTML attribute escaping | Fixed |
+| CF-61: Search zoom | P0 | Independent GeoJSON refs | Fixed |
+| CF-62: Donut chart | P0 | SVG donut implementation | Fixed |
+| CF-63: Layer toggle | P0 | setLayoutProperty per group | Fixed |
+| CF-70: Search flyTo popup | P2 | moveend event handler | Fixed |
+| CF-71: ThemeToggle desync | P2 | Controlled component | Fixed |
+| CF-72: AI insights on CF | P1 | env.AI.run() binding | Fixed |
+| CF-73: CF build open-next | P0 | Root-level restructure | Fixed |
+| CF-74: Production sync | P0 | dashboard/ sync | Fixed |
+| CF-75: DUNStats interface | P1 | Added code_parlimen | Fixed |
+| CF-76: Recharts XAxis | P1 | Props moved to XAxis | Fixed |
+| CF-77: Data table fly-to | P2 | onFlyTo prop + row click | Fixed |
+| CF-78: Layer toggle toast | P3 | Toast in toggleLayer | Fixed |
+| CF-79: Exports not password-protected | P1 | Server-side endpoints + PBKDF2 | Fixed |
+| CF-80: Password dialog not showing | P1 | Reset mode flags on click | Fixed |
+| CF-81: DUN missing By DUN filter | P2 | Added filter option + seatList fix | Fixed |
+| CF-82: Heatmap ignores metric | P2 | Use activeMetric's color scale | Fixed |
+| CF-83: Legend shows wrong colors in heatmap | P3 | heatmapMode prop on Legend | Fixed |
+| CF-84: DM voter download fails for most DMs | P1 | Generate on-the-fly from D1 (no R2) | Fixed |
+| CF-85: xlsx files publicly downloadable from repo | P0 | Transfer to R2 + purge git history | Fixed |
+| CF-86: React 19 setState-in-updater warning | P2 | Ref snapshot + decide toast outside updater | Fixed |
+| CF-87: setState-in-effect lint errors | P2 | Wrapped close handler + queueMicrotask | Fixed |
+| CF-88: avgContact 0.8% vs 76.8% | P1 | Removed double /100 | Fixed |
+| CF-89: dashboard/package.json desync | P0 | Revert @opennextjs/cloudflare to ^1.20.1 | Fixed |
+| CF-90: skills/ type errors broke tsc | P1 | Exclude skills/scripts/analysis in tsconfig | Fixed |
+| CF-91: Dev server 500s | P0 | initOpenNextCloudflareForDev + NODE_ENV guard | Fixed |
+| CF-92: Preview host blocked | P2 | allowedDevOrigins for *.space-z.ai | Fixed |

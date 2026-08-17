@@ -1,9 +1,9 @@
 # Cloudflare Deployment — Phase Compatibility Analysis
 
-> **Status**: Phase B (Workers) deployed and live. R2 bucket active.
-> **Last updated**: 2026-08-16
+> **Status**: Phase 12 (Workers) deployed and live. R2 bucket active. dashboard/ + root kept in sync.
+> **Last updated**: 2026-08-17
 > **Deployed URL**: https://slgrvtrs.ritz-analytics.workers.dev
-> **Conclusion**: All 5 phases are compatible with Cloudflare deployment. Phase 5B R2 bucket provisioned and bound.
+> **Conclusion**: All 12 phases are compatible with Cloudflare deployment. Phase 12 adds dev-server hardening (initOpenNextCloudflareForDev, allowedDevOrigins, remote D1/R2) and 2 new client-side features (Recently Viewed, Screenshot). No new CF infrastructure.
 
 ---
 
@@ -17,6 +17,13 @@
 | **Phase 4** | Polish & deploy — responsive, ErrorBoundary, provenance, Server Component | Yes | Static Pages + Workers | None | None |
 | **Phase 5A** | DM centroid geocoding, boundary validation | Yes | Workers + D1 | geocode_cache table, 2 API routes, batch validation scripts | None |
 | **Phase 5B** | Individual voter points (PMTiles) | Yes | Workers + R2 | R2 bucket `slgrvtrs-tiles` created and bound, `/api/r2/[...path]` route deployed | None |
+| **Phase 6** | AI Insights via Cloudflare AI Workers (`env.AI` binding) | Yes | Workers + AI | `"ai": { "binding": "AI" }` in wrangler.jsonc, `/api/insights` route | None |
+| **Phase 7** | Password-protected CSV export (PBKDF2 + D1 `app_settings`) | Yes | Workers + D1 | `app_settings` table, 4 password-protected export routes | None |
+| **Phase 8** | UI feature suite (dark mode, heatmap, satellite, analytics drawer, ranking, bookmarks, share, onboarding, data table, toast, fullscreen, keyboard shortcuts) | Yes | Workers (no infra change) | All client-side components | None |
+| **Phase 9** | UX refinements (data table row click → fly-to, layer toggle toasts, shimmer skeleton) | Yes | Workers (no infra change) | All client-side | None |
+| **Phase 10** | Export & heatmap fixes (all exports password-protected, DM voter download on-the-fly, DUN By-DUN filter, heatmap follows active metric) | Yes | Workers (no infra change) | New routes `/api/export/dm-xlsx`, `/api/export/comparison`, `/api/export/dm-voters/[dm_code]` | None |
+| **Phase 11** | Security — xlsx transfer to R2 + git history purge | Yes | Workers (no infra change) | 4 xlsx files moved to private R2; git history rewritten | None |
+| **Phase 12** | Recently Viewed + Screenshot + dev-server hardening | Yes | Workers (no infra change) | `initOpenNextCloudflareForDev()` + `allowedDevOrigins` + `remote:true` D1/R2; 2 new client components (RecentlyViewed, ScreenshotButton); tsconfig excludes `skills/scripts/analysis` | None |
 
 ---
 
@@ -230,7 +237,7 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 
 ## Conclusion
 
-**All 11 phases are fully compatible with Cloudflare deployment on the free tier.**
+**All 12 phases are fully compatible with Cloudflare deployment on the free tier.**
 
 - Phase 1-2: **DEPLOYED** — live at https://slgrvtrs.ritz-analytics.workers.dev
 - Phase 3: **DEPLOYED** — DM bubbles + DUN choropleth (9 metrics) + race/gender filters
@@ -240,6 +247,10 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 - Phase 6: **DEPLOYED** — AI Insights via CF AI Workers (Llama 3.3 70B, `env.AI` binding)
 - Phase 7: **DEPLOYED** — Password-protected CSV export (PBKDF2 + D1 `app_settings`)
 - Phase 8: **DEPLOYED** — UI features (dark mode, satellite basemap, heatmap, analytics drawer, ranking table, bookmarks, share, onboarding tour, data table, toast notifications, fullscreen, keyboard shortcuts, comparison charts)
+- Phase 9: **DEPLOYED** — UX refinements (data table fly-to, layer toggle toasts, shimmer loading)
+- Phase 10: **DEPLOYED** — Export & heatmap fixes (all exports password-protected, DM voter download on-the-fly from D1, DUN By-DUN filter, heatmap follows active metric)
+- Phase 11: **DEPLOYED** — xlsx transfer to private R2 + git history purge
+- Phase 12: **DEPLOYED** — Recently Viewed + Screenshot + dev-server hardening (initOpenNextCloudflareForDev, allowedDevOrigins, remote D1/R2)
 
 ### Phase 6: AI Insights (CF AI Workers)
 **Status**: DEPLOYED  
@@ -285,5 +296,28 @@ Update the domain's DNS from Vercel to Cloudflare Pages.
 - Force-pushed cleaned history to GitHub
 - Voter PII (voter IDs, DOB, contact info) no longer publicly accessible
 - R2 bucket is private — access only via password-protected Worker routes
+
+### Phase 12: Recently Viewed + Screenshot + Dev-Server Hardening
+**Status**: DEPLOYED
+**CF Compatibility**: No new CF infrastructure. All Phase 12 changes are either (a) dev-server-only config (`initOpenNextCloudflareForDev()`, `allowedDevOrigins`, `remote: true`) or (b) client-side components.
+**New features**:
+- **RecentlyViewed** component — pop-up panel showing last 8 visited parliament/DUN/DM seats. Persisted to localStorage (`slgrvtrs:recent`). Cross-component updates via `slgrvtrs:recent-updated` CustomEvent. Toolbar button + `H` shortcut.
+- **ScreenshotButton** component — captures the MapLibre WebGL canvas as a PNG with a 2D-canvas fallback. Toolbar button + `P` shortcut (via global `slgrvtrs:screenshot` event).
+- **selectSeat()** wrapper around `setCurrentSelection` in MapDashboard — pushes every parliament/DUN/DM selection into the Recently Viewed history.
+- New sidebar footer (LIVE DATA badge with pulse, Sources link, version + comparison/layer status indicator).
+- New bottom status bar (zoom + view mode + active metric + current selection + comparison count; mobile-truncating).
+- AnalyticsDrawer enhancements: 4 voter-weighted MetricCards + Contact Rate by Parliament bar chart with 3-tier color legend.
+- 3 new keyboard shortcuts: `H` (Recent), `P` (Screenshot), `C` (Clear selection).
+- Dark-mode-aware loading screen with glowing spinner + headline stats.
+- New CSS utilities: `.no-scrollbar`, `.animate-scale-in`, `.spinner-glow`, `.theme-transition`.
+**Engineering fixes (see `BUGFIXES.md` CF-86…CF-92)**:
+- `next.config.ts`: `initOpenNextCloudflareForDev()` (guarded by `NODE_ENV === "development"`) + `allowedDevOrigins` for the z.ai preview host.
+- `wrangler.jsonc`: `remote: true` on D1 + R2 bindings so `next dev` reads from the production-shape remote D1/R2.
+- `MapDashboard.tsx`: fixed React 19 “Cannot update a component while rendering a different component” warning in `addToComparison` by snapshotting the comparison list with a ref.
+- `PasswordDialog.tsx`: fixed lint error (setState-in-effect) by moving state reset into a wrapped handleClose callback.
+- `AnalyticsDrawer.tsx`: fixed avgContact calculation (was dividing by 100 twice, showing 0.8% instead of 76.8%).
+- `.gitignore`: stop tracking 4 large xlsx files (308 MB total) moved to private R2 bucket. Also ignore `db/custom.db`, `tool-results/`, `dev.log`.
+- `tsconfig.json`: excluded `skills/`, `scripts/`, `analysis/` directories from TypeScript type-checking.
+- `dashboard/package.json`: reverted `@opennextjs/cloudflare` from `^1.20.2` back to `^1.20.1` to match the existing lockfile (CF-89).
 
 The `pip-melaka` repo proves the pattern works — same org, same developer, same stack (Next.js 16 + OpenNext + Wrangler + D1), already deployed to Cloudflare.

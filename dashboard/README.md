@@ -14,7 +14,7 @@ npm run build:cf   # Build for Cloudflare Workers
 npm run deploy     # Deploy to Cloudflare
 ```
 
-## Features (Phase 1–11)
+## Features (Phase 1–12)
 
 ### Map Visualization
 - **Parliament choropleth** (22 seats) with 10 switchable metrics
@@ -30,12 +30,15 @@ npm run deploy     # Deploy to Cloudflare
 - **Comparison radar chart** — 6-axis normalized radar with state-average overlay
 - **Comparison bar chart** — grouped race composition bars
 - **Bookmarks** — save/restore constituencies in localStorage
+- **Recently Viewed (Phase 12)** — pop-up panel showing the last 8 visited parliament/DUN/DM seats, persisted to localStorage (`slgrvtrs:recent`), cross-component updates via `slgrvtrs:recent-updated` CustomEvent
 - **Shareable URLs** — encode map center, zoom, metric, and selection into URL hash
+- **Screenshot map (Phase 12)** — capture the MapLibre WebGL canvas as a timestamped PNG (2D-canvas fallback), toolbar button + `P` shortcut
 - **Fullscreen map toggle** — hide sidebar for maximum map area (press F)
+- **Clear selection (Phase 12)** — press `C` to deselect the current seat and close the popup
 
 ### Data & Analytics
-- **Analytics drawer** — statewide ethnic/gender donuts, top/bottom-5 bar charts, age distribution
-- **AI Insights** — LLM-powered bullet insights via Cloudflare AI Workers (Llama 3.3 70B)
+- **Analytics drawer** — statewide ethnic/gender donuts, top/bottom-5 bar charts, age distribution, **4 voter-weighted MetricCards (Total Voters, Avg Contact %, Avg Mean Age, Voter Density)**, **Contact Rate by Parliament bar chart with 3-tier color legend**
+- **AI Insights** — LLM-powered bullet insights via direct fetch to ZAI API (Phase 12; previously `env.AI.run()` with Llama 3.3 70B)
 - **Ranking table** — sortable/filterable table of all 22 parliaments or 56 DUNs
 - **Data table explorer** — full-screen sortable table with CSV export + row click to fly-to
 - **Constituency detail card** — mini-stats (voters, Malay %, age) + quick actions
@@ -43,11 +46,32 @@ npm run deploy     # Deploy to Cloudflare
 
 ### UX & Polish
 - **Onboarding tour** — 4-step first-visit guided tour
-- **Keyboard shortcuts** — press ? for overlay (/ 1 2 3 A I R B D F T S Esc ?)
+- **Keyboard shortcuts** — press ? for overlay (`/ 1 2 3 A I R B H D P F T S C Esc ?`)
 - **Toast notifications** — success/error/info feedback for all key actions
 - **Password-protected CSV export** — PBKDF2 hashed, D1-backed
 - **Responsive design** — mobile sidebar collapse, touch-friendly controls
+- **Sidebar footer (Phase 12)** — LIVE DATA badge (pulse animation), Sources link, version + comparison/layer status indicator
+- **Bottom status bar (Phase 12)** — zoom + view mode + active metric + current selection + comparison count; mobile-truncating with `.no-scrollbar`
+- **Dark-mode-aware loading screen (Phase 12)** — glowing spinner (`.spinner-glow`) + headline stats under the spinner
+- **CSS utilities (Phase 12)** — `.no-scrollbar`, `.animate-scale-in`, `.spinner-glow`, `.theme-transition`
 - **ErrorBoundary** and **provenance panel**
+
+### Floating Toolbar (10 buttons)
+
+| # | Button | Feature | Shortcut |
+|---|--------|---------|----------|
+| 1 | 📊 | Analytics drawer | A |
+| 2 | 🧠 | AI Insights | I |
+| 3 | 📋 | Ranking table | R |
+| 4 | 🔖 | Bookmarks menu | B |
+| 5 | 🕐 | Recently Viewed history | H |
+| 6 | 📄 | Data Table explorer | D |
+| 7 | 📸 | Screenshot map (PNG) | P |
+| 8 | 🔗 | Share view | S |
+| 9 | ☀️/🌙 | Theme & basemap toggle | T |
+| — | ❓ | Keyboard shortcuts | ? |
+
+Plus: Fullscreen toggle (F) and Sidebar toggle on the left side. Clear-selection shortcut (C) has no toolbar button.
 
 ## Tech Stack
 
@@ -59,7 +83,7 @@ npm run deploy     # Deploy to Cloudflare
 | Tailwind CSS | 4 | Utility-first styling |
 | Cloudflare D1 | Provisioned | 22 parliaments, 56 DUNs, 945 DMs |
 | Cloudflare R2 | Active | `slgrvtrs-tiles` bucket, `/api/r2/[...path]` |
-| Cloudflare AI Workers | Active | `env.AI` binding, Llama 3.3 70B |
+| Cloudflare AI Workers | Active (legacy binding) | `env.AI` binding declared; Phase 12 `/api/insights` route uses direct fetch to ZAI API instead |
 | @opennextjs/cloudflare | 1.20.1 | Next.js → CF Workers adapter |
 | Recharts | 2.15 | Analytics + comparison charts |
 
@@ -76,7 +100,7 @@ npm run deploy     # Deploy to Cloudflare
 | `/api/export/dm-voters/[dm_code]` | POST | Individual voters per DM from R2 (password-protected) |
 | `/api/geocode` | POST | Geocode cache → Google → Nominatim |
 | `/api/geocode/status` | GET | Geocoding stats |
-| `/api/insights` | POST | AI-powered insights via CF AI Workers (Llama 3.3 70B) |
+| `/api/insights` | POST | AI-powered insights via direct fetch to ZAI API (Phase 12; previously `env.AI.run()` Llama 3.3 70B) |
 | `/api/r2/[...path]` | GET | R2 object proxy for slgrvtrs-tiles |
 | `/api/settings/password` | GET/PUT | Check/set export password hash |
 | `/` | GET | Main dashboard page |
@@ -92,7 +116,7 @@ All export endpoints use the same password: `PAStimenang1` (PBKDF2, 10K iteratio
 - `src/app/api/dm/route.ts` — GET /api/dm (GeoJSON or JSON, with DUN/Parliament/voter filters)
 - `src/app/api/dm/[code]/route.ts` — GET /api/dm/[code] (single DM lookup)
 - `src/app/api/dm/search/route.ts` — GET /api/dm/search?q= (name autocomplete)
-- `src/app/api/insights/route.ts` — POST /api/insights (CF AI Workers, Llama 3.3 70B)
+- `src/app/api/insights/route.ts` — POST /api/insights (Phase 12: direct fetch to ZAI API; previously `env.AI.run()` Llama 3.3 70B)
 - `src/app/api/geocode/route.ts` — POST /api/geocode (cache → Google → Nominatim geocoding)
 - `src/app/api/geocode/status/route.ts` — GET /api/geocode/status (geocoding stats)
 - `src/app/api/r2/[...path]/route.ts` — R2 object proxy for slgrvtrs-tiles bucket
@@ -112,6 +136,8 @@ All export endpoints use the same password: `PAStimenang1` (PBKDF2, 10K iteratio
 | `AiInsightsPanel.tsx` | LLM insights drawer (calls /api/insights) |
 | `RankingTable.tsx` | Sortable Parliament/DUN ranking with fly-to |
 | `BookmarksMenu.tsx` | localStorage-backed seat bookmarks |
+| `RecentlyViewed.tsx` | Phase 12 — pop-up panel of last 8 visited seats (localStorage `slgrvtrs:recent`) |
+| `ScreenshotButton.tsx` | Phase 12 — captures MapLibre canvas as PNG with 2D-canvas fallback |
 | `ComparisonRadar.tsx` | 6-axis radar chart with state-average overlay |
 | `ComparisonBarChart.tsx` | Grouped race composition bars |
 | `ShareButton.tsx` | URL hash encoding + clipboard copy |
@@ -129,11 +155,18 @@ All export endpoints use the same password: `PAStimenang1` (PBKDF2, 10K iteratio
 
 | Binding | Type | Resource |
 |---------|------|----------|
-| `env.DB` | D1 Database | `slgrvtrs-voters` |
-| `env.TILES` | R2 Bucket | `slgrvtrs-tiles` |
-| `env.AI` | Workers AI | Llama 3.3 70B inference |
+| `env.DB` | D1 Database | `slgrvtrs-voters` (`remote: true` so `next dev` reads from the production-shape remote D1) |
+| `env.TILES` | R2 Bucket | `slgrvtrs-tiles` (`remote: true`) |
+| `env.AI` | Workers AI | Declared for backward compat; Phase 12 route uses direct fetch to ZAI API instead |
 | `env.ASSETS` | Assets | Static file serving |
 
 ## Data Provenance
 
 See [`docs/provenance.md`](../docs/provenance.md) for full provenance and disclaimers.
+
+## Phase 12 Dev-Server Hardening
+
+- `next.config.ts` calls `initOpenNextCloudflareForDev()` guarded by `NODE_ENV === "development"` so API routes can resolve `getCloudflareContext()` in `next dev` without breaking production builds.
+- `allowedDevOrigins` includes `*.space-z.ai` so the z.ai in-IDE preview panel can fetch chunks + HMR.
+- `tsconfig.json` excludes `skills/`, `scripts/`, `analysis/`, and `dashboard/` from type-checking (third-party skill scripts with type errors no longer break `tsc --noEmit`).
+- `dashboard/package.json` pins `@opennextjs/cloudflare@^1.20.1` to match the lockfile (CF-89).

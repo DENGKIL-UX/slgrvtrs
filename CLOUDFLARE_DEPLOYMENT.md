@@ -1,7 +1,7 @@
 # Cloudflare Deployment — SLGRVTRS
 
-> **Status**: DEPLOYED — Workers mode live on free tier (no credit card)
-> **Last updated**: 2026-08-16
+> **Status**: DEPLOYED — Workers mode live on free tier (no credit card), Phase 12
+> **Last updated**: 2026-08-17
 > **Deployed URL**: https://slgrvtrs.ritz-analytics.workers.dev
 > **Deployment mode**: OpenNext Workers (`@opennextjs/cloudflare`)
 > **Reference**: `DENGKIL-UX/pip-melaka` (verified working deployment, same org/stack)
@@ -22,6 +22,7 @@
 10. [Known Constraints & Gotchas](#10-known-constraints--gotchas)
 11. [Cost Projection](#11-cost-projection)
 12. [Critical `next.config.ts` Rules (DONE)](#12-critical-nextconfigts-rules-done)
+13. [Dual-Directory Structure (Phase 12)](#13-dual-directory-structure-phase-12)
 
 ---
 
@@ -544,8 +545,128 @@ Both fixes deployed via standard CF dashboard auto-deploy (push to `main`). No i
 + "build": "next build",
 ```
 
+### Rule 5: YES `initOpenNextCloudflareForDev()` — guarded by NODE_ENV (Phase 12, CF-91)
+
+```typescript
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Enable Cloudflare bindings (D1, R2, AI) in local `next dev`.
+// MUST run before defining nextConfig. Guarded by NODE_ENV so it never
+// runs during `next build` / CF Pages production builds — the function
+// tries to connect to Cloudflare via getPlatformProxy() which we don't
+// want during a build.
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
+```
+
+Without this, every API route that calls `getCloudflareContext()` returns HTTP 500
+with `getCloudflareContext has been called without having called
+initOpenNextCloudflareForDev`. Without the `NODE_ENV` guard, the call breaks
+`next build` / CF Pages production builds.
+
+### Rule 6: YES `allowedDevOrigins` for the z.ai preview host (Phase 12, CF-92)
+
+```typescript
+const nextConfig: NextConfig = {
+  // …
+  allowedDevOrigins: [
+    "preview-chat-fcc1f2f5-c8fd-43c9-9739-0d169e3240ea.space-z.ai",
+    "*.space-z.ai",
+    "localhost:3000",
+  ],
+};
+```
+
+Next.js 16's new `allowedDevOrigins` guard rejects cross-origin requests from
+unknown preview hosts. The z.ai in-IDE preview panel runs at
+`preview-chat-fcc1f2f5-…space-z.ai` — without this rule, the preview panel
+can't fetch chunks or establish the HMR socket.
+
+### Rule 7: YES `remote: true` on D1 + R2 bindings in `wrangler.jsonc` (Phase 12)
+
+```jsonc
+"d1_databases": [{
+  "binding": "DB",
+  "database_name": "slgrvtrs-voters",
+  "database_id": "59afb76e-a3a2-4e2a-b18d-857f9f5704fb",
+  "remote": true   // read from the production-shape remote D1 in `next dev`
+}],
+"r2_buckets": [{
+  "binding": "TILES",
+  "bucket_name": "slgrvtrs-tiles",
+  "remote": true   // same idea — no local mini-clone needed
+}]
+```
+
+This makes `next dev` talk to the real remote D1/R2 instead of an empty local
+mirror that would need to be re-seeded with 945 DMs + 56 DUNs + 22 Parliaments.
+Production deploys ignore the flag — they always use the remote bindings.
+
+Local dev must export `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` so
+`getPlatformProxy()` can authenticate.
+
 ### Why these matter
 
 - `output: "standalone"` generates a self-contained Node.js server (`.next/standalone/server.js`) — OpenNext cannot transform this into a Worker
 - `images: { unoptimized: true }` is required because Cloudflare Workers do not have Next.js Image Optimization
 - The `cp -r` build script was for Docker/Vercel standalone mode — not applicable to OpenNext
+- `initOpenNextCloudflareForDev()` is the bridge that lets `next dev` reach Cloudflare bindings locally — but it must be NODE_ENV-guarded or it breaks production builds
+- `allowedDevOrigins` is Next.js 16's cross-origin gate; the z.ai preview host is non-standard and must be allow-listed
+- `remote: true` lets the dev server skip the local-clone + re-seed dance
+
+---
+
+## 13. Dual-Directory Structure (Phase 12)
+
+The repo now ships **two parallel copies** of the dashboard source: one at the
+repo root (`/`) for local dev, and one at `/dashboard/` for the CF Pages
+production build. See `CF_BUILD_FIX.md` §9 for the full sync checklist.
+
+| Folder | Used by | Purpose |
+|--------|---------|--------|
+| `/` (repo root) | `next dev` (z.ai preview, local dev) | Live editing with remote D1/R2/AI bindings via `initOpenNextCloudflareForDev()` |
+| `/dashboard` | CF Pages production build | Static build → OpenNext Worker bundle deployed to `slgrvtrs.ritz-analytics.workers.dev` |
+
+### 13.1 Why two copies?
+
+- CF Pages' Root directory is set to `dashboard` (the historically working
+  configuration from build #fb6ce8c9).
+- Local `next dev` (z.ai preview) runs at the repo root so it can pick up
+  `skills/`, `scripts/`, `analysis/`, `docs/`, and other repo-level files
+  that aren't part of the deploy bundle.
+- Having a single source of truth would require either changing the CF Pages
+  Root to `/` (risky — re-triggers the open-next-not-found error from §10) or
+  running `next dev` from inside `dashboard/` (loses access to the repo-level
+  tooling).
+
+### 13.2 What MUST stay in sync
+
+- `src/` (components, app routes, lib)
+- `public/` (GeoJSON, stats JSON, MapLibre workers)
+- `migrations/*.sql`
+- Shared config: `next.config.ts`, `wrangler.jsonc`, `tsconfig.json`,
+  `open-next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`,
+  `eslint.config.mjs`
+
+### 13.3 What MUST NOT be copied between folders
+
+- `package.json` and `package-lock.json` — independent dependency trees
+  (see CF-89 in `BUGFIXES.md`). The root may have `@opennextjs/cloudflare@^1.20.2`
+  while `dashboard/` is pinned at `^1.20.1` — that's fine.
+- `.dev.vars`, `dev.log`, `tool-results/`, `db/custom.db` — local-only files.
+
+### 13.4 Verification after a sync
+
+```bash
+# 1. TypeScript check (root)
+npx tsc --noEmit
+
+# 2. Production build (dashboard)
+cd dashboard && npm ci && npm run build:cf
+# expect: "OpenNext build complete" + "Worker saved in .open-next/worker.js"
+
+# 3. Optional deploy
+cd dashboard && npx @opennextjs/cloudflare deploy
+# expect: deployed to https://slgrvtrs.ritz-analytics.workers.dev
+```
